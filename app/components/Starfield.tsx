@@ -44,6 +44,7 @@ export default function Starfield() {
             return star;
         };
 
+        let starsWidth = 0;
         const resize = () => {
             dpr = Math.min(window.devicePixelRatio || 1, 2);
             width = window.innerWidth;
@@ -51,11 +52,22 @@ export default function Starfield() {
             canvas.width = width * dpr;
             canvas.height = height * dpr;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            cx = targetCx = width / 2;
-            cy = targetCy = height / 2;
+            targetCx = width / 2;
+            targetCy = height / 2;
 
-            const count = Math.max(160, Math.min(650, Math.round((width * height) / 2600)));
-            stars = Array.from({ length: count }, () => spawn({ x: 0, y: 0, z: 0, color: '' }, false));
+            // Sur mobile, la barre d'adresse change la hauteur à chaque défilement :
+            // on ne recrée les étoiles que si la largeur change (rotation, fenêtre redimensionnée),
+            // sinon le champ d'étoiles « sauterait » pendant le scroll.
+            if (width !== starsWidth) {
+                starsWidth = width;
+                cx = targetCx;
+                cy = targetCy;
+                const count = Math.max(160, Math.min(650, Math.round((width * height) / 2600)));
+                stars = Array.from({ length: count }, () => spawn({ x: 0, y: 0, z: 0, color: '' }, false));
+            }
+
+            // Redimensionner le canvas l'efface : en mouvement réduit, on redessine l'image fixe
+            if (reduceMotion) draw(16);
         };
 
         const project = (x: number, y: number, z: number) => [cx + (x / z) * FOCAL, cy + (y / z) * FOCAL];
@@ -126,10 +138,8 @@ export default function Starfield() {
         resize();
         window.addEventListener('resize', resize);
 
-        if (reduceMotion) {
-            // Mouvement réduit : une seule image fixe
-            draw(16);
-        } else {
+        // Mouvement réduit : resize() a déjà dessiné une image fixe, pas d'animation
+        if (!reduceMotion) {
             raf = requestAnimationFrame(loop);
             window.addEventListener('warp', onWarp);
             window.addEventListener('scroll', onScroll, { passive: true });
