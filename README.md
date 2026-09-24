@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lagrobarber
 
-## Getting Started
+Plateforme de prise de rendez-vous pour un barbier : les clients réservent un créneau en quelques secondes, sans créer de compte, et le coiffeur gère son planning et ses clients depuis un espace privé.
 
-First, run the development server:
+**🔗 [Voir le site](https://barber-rdv-baptiste.vercel.app)** · **✂️ [Essayer l'espace coiffeur (démo)](https://barber-rdv-baptiste.vercel.app/admin?demo)**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+![Page d'accueil](docs/screenshots/accueil.png)
+
+## Fonctionnalités
+
+### Côté client
+- **Créneaux en direct** : les 4 prochaines places libres sont affichées dès l'arrivée sur le site ; un clic ouvre directement la réservation.
+- **Calendrier à la semaine** : navigation par semaine, jours avec des disponibilités signalés, créneaux passés ou déjà pris grisés.
+- **Réservation sans compte** : prénom, téléphone et email facultatif, avec validation côté serveur.
+- **Responsive** : sur mobile, le formulaire s'ouvre en panneau depuis le bas de l'écran.
+
+### Côté coiffeur (`/admin`)
+- **Tableau de bord** : réservations à venir, créneaux libres, clients du jour et fiche du prochain client (appel ou email en un clic).
+- **Ouverture de créneaux en lot** : choix d'un jour puis de plusieurs heures d'un coup ; les heures déjà ouvertes sont signalées.
+- **Planning** regroupé par jour, filtrable (tous / réservés / libres), suppression en deux clics pour éviter les erreurs.
+- **Mode démo** (`/admin?demo`) : le tableau de bord complet avec des clients fictifs, entièrement dans le navigateur, pour découvrir l'outil sans mot de passe et sans toucher aux vraies données.
+
+### Expérience
+- Fond animé « voyage dans l'espace » en canvas : le point de fuite suit la souris, le défilement accélère le voyage et les actions importantes déclenchent un effet hyperespace.
+- Animations respectueuses du réglage système « réduire les animations ».
+
+| Réservation | Espace coiffeur | Mobile |
+|---|---|---|
+| ![Réservation](docs/screenshots/reservation.png) | ![Espace coiffeur](docs/screenshots/espace-coiffeur.png) | ![Mobile](docs/screenshots/mobile.png) |
+
+## Stack technique
+
+| | |
+|---|---|
+| Framework | [Next.js 16](https://nextjs.org) (App Router) · React 19 · TypeScript |
+| Style | Tailwind CSS 4 · polices Fraunces et Geist · icônes Lucide |
+| Données | PostgreSQL ([Prisma Postgres](https://www.prisma.io/postgres)) · ORM Prisma |
+| Hébergement | [Vercel](https://vercel.com) |
+
+## Points techniques
+
+- **Pas de double réservation** : la réservation est une seule requête atomique (`updateMany` conditionné sur `isBooked: false` et une date future). Si deux clients valident le même créneau au même instant, un seul l'obtient ; l'autre reçoit un message clair.
+- **Authentification côté serveur** : le mot de passe du coiffeur est vérifié par l'API (comparaison en temps constant) et la session est un cookie `httpOnly` signé en HMAC, avec expiration. Aucune donnée d'authentification n'est exposée au navigateur.
+- **Séparation public / privé** : l'API publique (`/api/slots`) est en lecture seule et ne renvoie jamais de données client. Tout ce qui crée, supprime ou affiche des informations personnelles passe par `/api/admin/*`, protégé par la session.
+- **Aucun secret dans le dépôt** : la configuration passe par des variables d'environnement (voir [`.env.example`](.env.example)).
+
+### Organisation du code
+
+```
+app/
+├── page.tsx                  Page client : créneaux en direct, calendrier, réservation
+├── admin/
+│   ├── page.tsx              Espace coiffeur : connexion, tableau de bord, planning
+│   └── demo.ts               Données fictives du mode démo
+├── components/
+│   ├── Starfield.tsx         Fond animé (canvas)
+│   └── ui.tsx                Logo, poteau de barbier, notifications
+└── api/
+    ├── slots/                GET public : créneaux de la semaine, prochains libres
+    ├── book/                 POST public : réservation d'un créneau
+    └── admin/
+        ├── session/          Connexion / déconnexion du coiffeur
+        └── slots/            Créneaux avec données clients, création, suppression
+lib/
+├── auth.ts                   Vérification du mot de passe et sessions signées
+└── prisma.ts                 Client Prisma
+prisma/schema.prisma          Modèle de données
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Lancer le projet en local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Prérequis : Node.js 20+ et une base PostgreSQL.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+git clone https://github.com/BJ9255/barber-platform.git
+cd barber-platform
+npm install
 
-## Learn More
+cp .env.example .env          # puis renseigne POSTGRES_URL et ADMIN_PASSWORD
+npx prisma db push            # crée les tables
+npx tsx seed.ts               # facultatif : ajoute des créneaux de test
 
-To learn more about Next.js, take a look at the following resources:
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Le site est alors disponible sur [http://localhost:3000](http://localhost:3000) et l'espace coiffeur sur [http://localhost:3000/admin](http://localhost:3000/admin).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Déploiement
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Le site est déployé sur Vercel avec le script [`deploy.sh`](deploy.sh), qui vérifie le code (TypeScript + ESLint) puis publie en production. Les variables `POSTGRES_URL` et `ADMIN_PASSWORD` doivent être configurées dans les paramètres du projet Vercel.
