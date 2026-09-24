@@ -78,12 +78,11 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-/* Grain léger + halo chaud en fond */
+/* Halo chaud par-dessus le champ d'étoiles (transparent pour le laisser voir) */
 .bg-atmosphere {
   background:
     radial-gradient(ellipse 80% 50% at 70% -10%, rgb(212 162 76 / 0.14), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(212 162 76 / 0.06), transparent 60%),
-    var(--color-ink);
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(212 162 76 / 0.06), transparent 60%);
 }
 
 .skeleton {

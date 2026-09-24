@@ -1,0 +1,157 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+
+// Déclenche une accélération « hyperespace » depuis n'importe quel composant
+export function warp(strength = 1) {
+    window.dispatchEvent(new CustomEvent('warp', { detail: strength }));
+}
+
+const DEPTH = 1000;       // profondeur maximale d'une étoile
+const FOCAL = 500;        // distance focale de la projection
+const BASE_SPEED = 0.15;  // unités de profondeur par milliseconde
+const COLORS = ['243,237,228', '243,237,228', '243,237,228', '230,187,108', '180,200,255'];
+
+type Star = { x: number; y: number; z: number; color: string };
+
+// Fond animé : voyage infini à travers un champ d'étoiles
+export default function Starfield() {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (!canvas || !ctx) return;
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let width = 0;
+        let height = 0;
+        let dpr = 1;
+        let stars: Star[] = [];
+        let raf = 0;
+        let last = performance.now();
+
+        let speed = BASE_SPEED;
+        let boost = 0;
+        // Point de fuite : suit légèrement la souris
+        let cx = 0, cy = 0, targetCx = 0, targetCy = 0;
+
+        const spawn = (star: Star, far: boolean) => {
+            star.x = (Math.random() * 2 - 1) * width;
+            star.y = (Math.random() * 2 - 1) * height;
+            star.z = far ? DEPTH : Math.random() * DEPTH + 1;
+            star.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+            return star;
+        };
+
+        const resize = () => {
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            cx = targetCx = width / 2;
+            cy = targetCy = height / 2;
+
+            const count = Math.max(160, Math.min(650, Math.round((width * height) / 2600)));
+            stars = Array.from({ length: count }, () => spawn({ x: 0, y: 0, z: 0, color: '' }, false));
+        };
+
+        const project = (x: number, y: number, z: number) => [cx + (x / z) * FOCAL, cy + (y / z) * FOCAL];
+
+        const draw = (dt: number) => {
+            ctx.clearRect(0, 0, width, height);
+
+            // Accélération : les boosts retombent en douceur
+            boost *= Math.pow(0.992, dt);
+            speed += (BASE_SPEED * (1 + boost) - speed) * Math.min(1, dt / 120);
+            cx += (targetCx - cx) * Math.min(1, dt / 600);
+            cy += (targetCy - cy) * Math.min(1, dt / 600);
+
+            const travel = speed * dt;
+            // Plus on va vite, plus les traînées s'allongent
+            const trail = Math.min(18, 1 + (speed / BASE_SPEED) * 1.2);
+
+            for (const star of stars) {
+                star.z -= travel;
+                if (star.z < 1) {
+                    spawn(star, true);
+                    continue;
+                }
+
+                const [sx, sy] = project(star.x, star.y, star.z);
+                if (sx < -50 || sx > width + 50 || sy < -50 || sy > height + 50) {
+                    spawn(star, true);
+                    continue;
+                }
+                const [px, py] = project(star.x, star.y, Math.min(DEPTH, star.z + travel * trail));
+
+                const closeness = 1 - star.z / DEPTH;
+                const alpha = Math.min(1, closeness * closeness * 1.4);
+                ctx.strokeStyle = `rgba(${star.color},${alpha})`;
+                ctx.lineWidth = Math.max(0.4, closeness * 2.4);
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(sx, sy);
+                ctx.stroke();
+            }
+        };
+
+        const loop = (now: number) => {
+            const dt = Math.min(50, now - last);
+            last = now;
+            draw(dt);
+            raf = requestAnimationFrame(loop);
+        };
+
+        const onWarp = (e: Event) => {
+            const strength = (e as CustomEvent<number>).detail ?? 1;
+            boost = Math.max(boost, 22 * strength);
+        };
+
+        let lastScroll = window.scrollY;
+        const onScroll = () => {
+            const delta = Math.abs(window.scrollY - lastScroll);
+            lastScroll = window.scrollY;
+            boost = Math.min(12, boost + delta * 0.04);
+        };
+
+        const onPointer = (e: PointerEvent) => {
+            targetCx = width / 2 + (e.clientX - width / 2) * 0.12;
+            targetCy = height / 2 + (e.clientY - height / 2) * 0.12;
+        };
+
+        resize();
+        window.addEventListener('resize', resize);
+
+        if (reduceMotion) {
+            // Mouvement réduit : une seule image fixe
+            draw(16);
+        } else {
+            raf = requestAnimationFrame(loop);
+            window.addEventListener('warp', onWarp);
+            window.addEventListener('scroll', onScroll, { passive: true });
+            window.addEventListener('pointermove', onPointer, { passive: true });
+            // Petite entrée en hyperespace à l'ouverture de la page
+            boost = 14;
+        }
+
+        return () => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener('resize', resize);
+            window.removeEventListener('warp', onWarp);
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('pointermove', onPointer);
+        };
+    }, []);
+
+    return (
+        <canvas
+            ref={canvasRef}
+            aria-hidden
+            className="fixed inset-0 -z-10 h-full w-full pointer-events-none"
+        />
+    );
+}

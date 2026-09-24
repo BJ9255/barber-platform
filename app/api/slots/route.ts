@@ -10,17 +10,18 @@ export const revalidate = 0;
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
-    // Prochain créneau libre, affiché en haut de la page d'accueil
-    if (searchParams.get('scope') === 'next') {
+    // Prochains créneaux libres, affichés en haut de la page d'accueil
+    if (searchParams.get('scope') === 'upcoming') {
         try {
-            const next = await prisma.slot.findFirst({
+            const upcoming = await prisma.slot.findMany({
                 where: { isBooked: false, startTime: { gt: new Date() } },
                 orderBy: { startTime: 'asc' },
+                take: 4,
                 select: { id: true, startTime: true, isBooked: true },
             });
-            return NextResponse.json(next);
+            return NextResponse.json(upcoming);
         } catch (error) {
-            console.error('Error fetching next slot:', error);
+            console.error('Error fetching upcoming slots:', error);
             return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });
         }
     }

@@ -7,13 +7,9 @@ import { CheckCircle2, AlertCircle } from 'lucide-react';
 export const SHOP_NAME = 'Lagrobarber';
 
 // Poteau de barbier animé
-export function BarberPole({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-    const dims = {
-        sm: 'w-2.5 h-7',
-        md: 'w-4 h-14',
-        lg: 'w-14 h-64',
-    }[size];
-    const cap = size === 'lg' ? 'h-4 w-[4.5rem]' : size === 'md' ? 'h-1.5 w-5' : 'h-1 w-3.5';
+export function BarberPole({ size = 'md' }: { size?: 'sm' | 'md' }) {
+    const dims = size === 'md' ? 'w-4 h-14' : 'w-2.5 h-7';
+    const cap = size === 'md' ? 'h-1.5 w-5' : 'h-1 w-3.5';
 
     return (
         <div className="flex flex-col items-center" aria-hidden>

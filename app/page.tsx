@@ -9,7 +9,8 @@ import { fr } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, Loader2, ArrowRight, CalendarDays, Clock, UserRound, Phone, Mail, X, Scissors, Lock,
 } from 'lucide-react';
-import { BarberPole, Logo, SHOP_NAME, useToasts } from './components/ui';
+import { Logo, SHOP_NAME, useToasts } from './components/ui';
+import { warp } from './components/Starfield';
 
 type Slot = {
   id: string;
@@ -27,7 +28,7 @@ export default function BookingPage() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [nextSlot, setNextSlot] = useState<Slot | null | undefined>(undefined);
+  const [upcoming, setUpcoming] = useState<Slot[] | undefined>(undefined);
 
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [bookedSlot, setBookedSlot] = useState<Slot | null>(null);
@@ -40,14 +41,16 @@ export default function BookingPage() {
   const pendingJump = useRef<Slot | null>(null);
   const { notify, toasts } = useToasts();
 
-  const fetchNextSlot = useCallback(async () => {
+  // Prochains créneaux libres, affichés dans la carte « Disponibles » du haut de page
+  const fetchUpcoming = useCallback(async () => {
     try {
-      const res = await fetch('/api/slots?scope=next', { cache: 'no-store' });
-      setNextSlot(res.ok ? await res.json() : null);
+      const res = await fetch('/api/slots?scope=upcoming', { cache: 'no-store' });
+      setUpcoming(res.ok ? await res.json() : []);
     } catch {
-      setNextSlot(null);
+      setUpcoming([]);
     }
   }, []);
+  const nextSlot = upcoming?.[0] ?? null;
 
   const fetchSlots = useCallback(async () => {
     setLoading(true);
@@ -79,7 +82,7 @@ export default function BookingPage() {
   }, [weekStart, notify]);
 
   useEffect(() => { fetchSlots(); }, [fetchSlots]);
-  useEffect(() => { fetchNextSlot(); }, [fetchNextSlot]);
+  useEffect(() => { fetchUpcoming(); }, [fetchUpcoming]);
 
   // Fermer la fenêtre avec Échap
   useEffect(() => {
@@ -123,19 +126,20 @@ export default function BookingPage() {
       });
 
       if (res.ok) {
+        warp(1.2);
         setBookedSlot(selectedSlot);
         setClientName('');
         setClientPhone('');
         setClientEmail('');
         fetchSlots();
-        fetchNextSlot();
+        fetchUpcoming();
       } else {
         const err = await res.json();
         if (res.status === 409) {
           setSelectedSlot(null);
           notify(err.error, 'error');
           fetchSlots();
-          fetchNextSlot();
+          fetchUpcoming();
         } else {
           setFormError(err.error || 'Une erreur est survenue');
         }
@@ -159,7 +163,7 @@ export default function BookingPage() {
   const sheetOpen = !!(selectedSlot || bookedSlot);
 
   return (
-    <div className="min-h-screen bg-atmosphere">
+    <div className="min-h-screen bg-atmosphere overflow-x-clip">
       {/* Navigation */}
       <header className="sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -175,7 +179,7 @@ export default function BookingPage() {
       </header>
 
       {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 pb-16 sm:pt-24 sm:pb-24 grid md:grid-cols-[1.3fr_1fr] gap-12 items-center">
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 pb-16 sm:pt-24 sm:pb-24 grid md:grid-cols-[1.2fr_1fr] gap-12 items-center">
         <div>
           <p className="animate-fade-up text-brass text-sm font-medium tracking-[0.2em] uppercase mb-5">
             Coupe · Dégradé · Barbe
@@ -196,6 +200,7 @@ export default function BookingPage() {
           <div className="animate-fade-up mt-9 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
             <a
               href="#reserver"
+              onClick={() => warp(0.8)}
               className="group inline-flex items-center gap-2 rounded-full bg-brass text-ink font-semibold px-7 py-3.5 hover:bg-brass-light transition-all hover:shadow-[0_0_40px_-8px_rgb(212_162_76/0.7)]"
             >
               Prendre rendez-vous
@@ -204,14 +209,7 @@ export default function BookingPage() {
           </div>
         </div>
 
-        <div className="relative hidden md:flex justify-center items-center min-h-80">
-          <div className="animate-float">
-            <BarberPole size="lg" />
-          </div>
-          <NextSlotCard slot={nextSlot} onPick={jumpToSlot} className="absolute bottom-0 -left-4 lg:left-0" />
-        </div>
-
-        <NextSlotCard slot={nextSlot} onPick={jumpToSlot} className="md:hidden -mt-4" />
+        <UpcomingCard slots={upcoming} onPick={jumpToSlot} />
       </section>
 
       {/* Réservation */}
@@ -512,36 +510,64 @@ function Field({
   );
 }
 
-function NextSlotCard({
-  slot, onPick, className = '',
+function UpcomingCard({
+  slots, onPick,
 }: {
-  slot: Slot | null | undefined;
+  slots: Slot[] | undefined;
   onPick: (slot: Slot) => void;
-  className?: string;
 }) {
-  if (slot === undefined) {
-    return <div className={`skeleton animate-shimmer h-[76px] w-64 rounded-2xl ${className}`} />;
-  }
   return (
-    <button
-      onClick={() => slot && onPick(slot)}
-      disabled={!slot}
-      className={`animate-fade-up group text-left flex items-center gap-4 rounded-2xl border border-line bg-surface/90 backdrop-blur px-5 py-4 shadow-2xl shadow-black/50 hover:border-brass transition-colors disabled:pointer-events-none ${className}`}
-      style={{ animationDelay: '400ms' }}
+    <div
+      className="animate-fade-up rounded-3xl border border-line bg-surface/70 backdrop-blur-md p-5 sm:p-6 shadow-2xl shadow-black/50"
+      style={{ animationDelay: '320ms' }}
     >
-      <span className="relative flex size-2.5">
-        {slot && <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-60 animate-ping" />}
-        <span className={`relative inline-flex size-2.5 rounded-full ${slot ? 'bg-sage' : 'bg-muted'}`} />
-      </span>
-      <span>
-        <span className="block text-xs text-muted">Prochain créneau libre</span>
-        <span className="block font-medium first-letter:uppercase">
-          {slot
-            ? format(new Date(slot.startTime), "EEEE d MMM 'à' HH:mm", { locale: fr })
-            : 'Bientôt de nouvelles dates'}
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-2xl">Disponibles</h2>
+        <span className="flex items-center gap-2 text-xs text-sage">
+          <span className="relative flex size-2">
+            <span className="absolute inset-0 rounded-full bg-sage opacity-60 animate-ping" />
+            <span className="relative size-2 rounded-full bg-sage" />
+          </span>
+          En direct
         </span>
-      </span>
-      {slot && <ArrowRight size={16} className="text-brass ml-1 transition-transform group-hover:translate-x-1" />}
-    </button>
+      </div>
+
+      <div className="mt-5 space-y-2">
+        {slots === undefined ? (
+          Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton animate-shimmer h-[66px] rounded-xl" />)
+        ) : slots.length === 0 ? (
+          <div className="py-8 text-center">
+            <Scissors size={22} className="mx-auto text-muted mb-3" />
+            <p className="font-medium">Tout est complet pour l&apos;instant</p>
+            <p className="text-sm text-muted mt-1">De nouveaux créneaux arrivent bientôt.</p>
+          </div>
+        ) : (
+          slots.map((slot, i) => (
+            <button
+              key={slot.id}
+              onClick={() => onPick(slot)}
+              className="animate-fade-up group w-full text-left flex items-center justify-between rounded-xl border border-line bg-ink/50 px-4 py-3 hover:border-brass hover:bg-brass/10 transition"
+              style={{ animationDelay: `${400 + i * 70}ms` }}
+            >
+              <span>
+                <span className="block text-xs text-muted first-letter:uppercase">
+                  {format(new Date(slot.startTime), 'EEEE d MMMM', { locale: fr })}
+                </span>
+                <span className="block font-display text-xl tabular-nums">
+                  {format(new Date(slot.startTime), 'HH:mm')}
+                </span>
+              </span>
+              <span className="text-sm text-brass flex items-center gap-1 opacity-70 group-hover:opacity-100 transition">
+                Réserver <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+
+      <a href="#reserver" className="mt-4 block text-center text-sm text-muted hover:text-cream transition">
+        Voir tout le planning
+      </a>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { BarberPole, Logo, useToasts } from '../components/ui';
 import { generateDemoSlots } from './demo';
+import { warp } from '../components/Starfield';
 
 type Slot = {
     id: string;
@@ -85,6 +86,7 @@ export default function AdminPage() {
     }, [handleUnauthorized, notify]);
 
     const startDemo = () => {
+        warp();
         demoRef.current = true;
         setDemo(true);
         setSlots(generateDemoSlots());
@@ -131,6 +133,7 @@ export default function AdminPage() {
                 body: JSON.stringify({ password }),
             });
             if (res.ok) {
+                warp();
                 setPassword('');
                 setIsAuthenticated(true);
                 fetchSlots();
