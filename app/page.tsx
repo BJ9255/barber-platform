@@ -214,7 +214,7 @@ export default function BookingPage() {
 
       {/* Réservation */}
       <section id="reserver" className="scroll-mt-20 max-w-4xl mx-auto px-4 sm:px-6 pb-24">
-        <div className="rounded-3xl border border-line bg-surface/80 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="rounded-3xl border border-line bg-surface/45 shadow-2xl shadow-black/40 overflow-hidden">
           <div className="p-5 sm:p-8 border-b border-line flex items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl sm:text-3xl">Réserver</h2>
@@ -349,7 +349,7 @@ export default function BookingPage() {
           ].map(({ icon: Icon, title, text }, i) => (
             <div
               key={title}
-              className="rounded-2xl border border-line bg-surface/60 p-6 hover:border-brass/50 transition-colors"
+              className="rounded-2xl border border-line bg-surface/35 p-6 hover:border-brass/50 transition-colors"
             >
               <div className="flex items-center gap-3 mb-3">
                 <span className="font-display text-brass text-lg">0{i + 1}</span>
@@ -518,7 +518,7 @@ function UpcomingCard({
 }) {
   return (
     <div
-      className="animate-fade-up rounded-3xl border border-line bg-surface/70 backdrop-blur-md p-5 sm:p-6 shadow-2xl shadow-black/50"
+      className="animate-fade-up rounded-3xl border border-line bg-surface/45 p-5 sm:p-6 shadow-2xl shadow-black/50"
       style={{ animationDelay: '320ms' }}
     >
       <div className="flex items-center justify-between">

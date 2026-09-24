@@ -29,6 +29,7 @@ export default function Starfield() {
         let dpr = 1;
         let stars: Star[] = [];
         let raf = 0;
+        let small = false; // petit écran (téléphone) : étoiles plus denses et plus visibles
         let last = performance.now();
 
         let speed = BASE_SPEED;
@@ -62,7 +63,8 @@ export default function Starfield() {
                 starsWidth = width;
                 cx = targetCx;
                 cy = targetCy;
-                const count = Math.max(160, Math.min(650, Math.round((width * height) / 2600)));
+                small = width < 640;
+                const count = Math.max(small ? 260 : 160, Math.min(650, Math.round((width * height) / (small ? 1100 : 2600))));
                 stars = Array.from({ length: count }, () => spawn({ x: 0, y: 0, z: 0, color: '' }, false));
             }
 
@@ -100,9 +102,9 @@ export default function Starfield() {
                 const [px, py] = project(star.x, star.y, Math.min(DEPTH, star.z + travel * trail));
 
                 const closeness = 1 - star.z / DEPTH;
-                const alpha = Math.min(1, closeness * closeness * 1.4);
+                const alpha = Math.min(1, small ? 0.12 + closeness * 1.3 : closeness * closeness * 1.4);
                 ctx.strokeStyle = `rgba(${star.color},${alpha})`;
-                ctx.lineWidth = Math.max(0.4, closeness * 2.4);
+                ctx.lineWidth = Math.max(small ? 0.7 : 0.4, closeness * 2.4);
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(px, py);
