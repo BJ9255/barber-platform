@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* inline : les variables de police sont posées sur <body> par next/font */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@theme {
+  --color-ink: #0f0d0b;
+  --color-surface: #191613;
+  --color-surface-2: #221e1a;
+  --color-line: #332d26;
+  --color-cream: #f3ede4;
+  --color-muted: #a59c90;
+  --color-brass: #d4a24c;
+  --color-brass-light: #e6bb6c;
+  --color-sage: #8fc28d;
+  --color-rust: #e2806f;
+
+  --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-scale-in: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-sheet-up: sheet-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-shake: shake 0.4s ease-in-out;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-pole: pole 1.4s linear infinite;
+  --animate-draw: draw 0.6s 0.15s ease-out both;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes sheet-up {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  @keyframes pole {
+    from { background-position: 0 0; }
+    to { background-position: 0 56px; }
+  }
+  @keyframes draw {
+    from { stroke-dashoffset: 48; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
   }
 }
 
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Grain léger + halo chaud en fond */
+.bg-atmosphere {
+  background:
+    radial-gradient(ellipse 80% 50% at 70% -10%, rgb(212 162 76 / 0.14), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(212 162 76 / 0.06), transparent 60%),
+    var(--color-ink);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, #2c2722 50%, var(--color-surface-2) 75%);
+  background-size: 200% 100%;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) sepia(0.4);
+  cursor: pointer;
+}
+
+::selection {
+  background: rgb(212 162 76 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

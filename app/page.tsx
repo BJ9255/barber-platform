@@ -1,196 +1,547 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { format, startOfWeek, addDays, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import Link from 'next/link';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  format, startOfWeek, endOfWeek, addDays, isSameDay, addWeeks, subWeeks, isToday, isBefore, startOfDay,
+} from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  ChevronLeft, ChevronRight, Loader2, ArrowRight, CalendarDays, Clock, UserRound, Phone, Mail, X, Scissors, Lock,
+} from 'lucide-react';
+import { BarberPole, Logo, SHOP_NAME, useToasts } from './components/ui';
 
 type Slot = {
   id: string;
   startTime: string;
   isBooked: boolean;
-  clientName?: string;
 };
 
+const isPast = (slot: Slot) => new Date(slot.startTime) <= new Date();
+const isFree = (slot: Slot) => !slot.isBooked && !isPast(slot);
+const toDateParam = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export default function BookingPage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [nextSlot, setNextSlot] = useState<Slot | null | undefined>(undefined);
+
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [bookedSlot, setBookedSlot] = useState<Slot | null>(null);
   const [clientName, setClientName] = useState('');
-  const [bookingLoading, setBookingLoading] = useState(false);
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  // Fetch slots when date changes
-  useEffect(() => {
-    fetchSlots();
-  }, [currentDate]);
+  const pendingJump = useRef<Slot | null>(null);
+  const { notify, toasts } = useToasts();
 
-  const fetchSlots = async () => {
+  const fetchNextSlot = useCallback(async () => {
+    try {
+      const res = await fetch('/api/slots?scope=next', { cache: 'no-store' });
+      setNextSlot(res.ok ? await res.json() : null);
+    } catch {
+      setNextSlot(null);
+    }
+  }, []);
+
+  const fetchSlots = useCallback(async () => {
     setLoading(true);
     try {
-      // Pass the start of the week as the date param to be consistent
-      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
-      const res = await fetch(`/api/slots?date=${start.toISOString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSlots(data);
+      const res = await fetch(`/api/slots?date=${toDateParam(weekStart)}`, { cache: 'no-store' });
+      const data: Slot[] = res.ok ? await res.json() : [];
+      setSlots(data);
+
+      // Choix du jour affiché : saut demandé > jour déjà choisi > premier jour avec des dispos > aujourd'hui
+      const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+      const jump = pendingJump.current;
+      pendingJump.current = null;
+      setSelectedDay(prev => {
+        if (jump) return startOfDay(new Date(jump.startTime));
+        if (prev && days.some(d => isSameDay(d, prev))) return prev;
+        const firstFree = days.find(d => data.some(s => isFree(s) && isSameDay(new Date(s.startTime), d)));
+        return firstFree ?? days.find(d => isToday(d)) ?? days[0];
+      });
+      if (jump) {
+        const fresh = data.find(s => s.id === jump.id);
+        if (fresh && isFree(fresh)) setSelectedSlot(fresh);
       }
     } catch (error) {
       console.error('Failed to fetch slots', error);
+      notify('Impossible de charger les créneaux', 'error');
     } finally {
       setLoading(false);
     }
+  }, [weekStart, notify]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+  useEffect(() => { fetchNextSlot(); }, [fetchNextSlot]);
+
+  // Fermer la fenêtre avec Échap
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSheet();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const jumpToSlot = (slot: Slot) => {
+    const target = startOfWeek(new Date(slot.startTime), { weekStartsOn: 1 });
+    document.getElementById('reserver')?.scrollIntoView();
+    if (isSameDay(target, weekStart)) {
+      setSelectedDay(startOfDay(new Date(slot.startTime)));
+      setSelectedSlot(slot);
+    } else {
+      pendingJump.current = slot;
+      setWeekStart(target);
+    }
   };
 
-  const handlePrevWeek = () => setCurrentDate(subWeeks(currentDate, 1));
-  const handleNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
+  const closeSheet = () => {
+    if (submitting) return;
+    setSelectedSlot(null);
+    setBookedSlot(null);
+    setFormError('');
+  };
 
-  const handleBookSlot = async () => {
-    if (!selectedSlot || !clientName.trim()) return;
+  const handleBookSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSlot || !clientName.trim() || !clientPhone.trim()) return;
 
-    setBookingLoading(true);
+    setSubmitting(true);
+    setFormError('');
     try {
       const res = await fetch('/api/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slotId: selectedSlot.id,
-          clientName: clientName,
-        }),
+        body: JSON.stringify({ slotId: selectedSlot.id, clientName, clientPhone, clientEmail }),
       });
 
       if (res.ok) {
-        alert('Réservation confirmée !');
-        setSelectedSlot(null);
+        setBookedSlot(selectedSlot);
         setClientName('');
-        fetchSlots(); // Refresh
+        setClientPhone('');
+        setClientEmail('');
+        fetchSlots();
+        fetchNextSlot();
       } else {
         const err = await res.json();
-        alert(`Erreur: ${err.error}`);
+        if (res.status === 409) {
+          setSelectedSlot(null);
+          notify(err.error, 'error');
+          fetchSlots();
+          fetchNextSlot();
+        } else {
+          setFormError(err.error || 'Une erreur est survenue');
+        }
       }
     } catch (error) {
       console.error('Booking failed', error);
-      alert('Une erreur est survenue.');
+      setFormError('Une erreur est survenue, réessaie.');
     } finally {
-      setBookingLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const startOfCurrentWeek = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 6 }).map((_, i) => addDays(startOfCurrentWeek, i)); // Mon-Sat
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const isCurrentWeek = isSameDay(weekStart, startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const daySlots = selectedDay
+    ? slots.filter(s => isSameDay(new Date(s.startTime), selectedDay))
+    : [];
+  const freeCount = (day: Date) =>
+    slots.filter(s => isFree(s) && isSameDay(new Date(s.startTime), day)).length;
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const sheetOpen = !!(selectedSlot || bookedSlot);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-900">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className="min-h-screen bg-atmosphere">
+      {/* Navigation */}
+      <header className="sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Logo />
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 text-sm text-muted hover:text-cream transition-colors"
+          >
+            <Lock size={14} />
+            <span className="hidden sm:inline">Espace coiffeur</span>
+          </Link>
+        </div>
+      </header>
 
-        {/* Header */}
-        <div className="bg-black text-white p-6 text-center">
-          <h1 className="text-2xl font-bold">Réserver une coupe</h1>
-          <p className="text-gray-400 text-sm mt-1">Choisissez votre créneau</p>
+      {/* Hero */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 pb-16 sm:pt-24 sm:pb-24 grid md:grid-cols-[1.3fr_1fr] gap-12 items-center">
+        <div>
+          <p className="animate-fade-up text-brass text-sm font-medium tracking-[0.2em] uppercase mb-5">
+            Coupe · Dégradé · Barbe
+          </p>
+          <h1
+            className="animate-fade-up font-display text-5xl sm:text-7xl leading-[1.02] tracking-tight"
+            style={{ animationDelay: '80ms' }}
+          >
+            La coupe,<br />
+            <em className="text-brass-light">sans l&apos;attente.</em>
+          </h1>
+          <p
+            className="animate-fade-up mt-6 text-lg text-muted max-w-md leading-relaxed"
+            style={{ animationDelay: '160ms' }}
+          >
+            Choisis ton créneau en quelques secondes. Confirmation immédiate, pas de compte à créer.
+          </p>
+          <div className="animate-fade-up mt-9 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
+            <a
+              href="#reserver"
+              className="group inline-flex items-center gap-2 rounded-full bg-brass text-ink font-semibold px-7 py-3.5 hover:bg-brass-light transition-all hover:shadow-[0_0_40px_-8px_rgb(212_162_76/0.7)]"
+            >
+              Prendre rendez-vous
+              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+            </a>
+          </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <button onClick={handlePrevWeek} className="p-2 hover:bg-gray-100 rounded-full transition">
-            <ChevronLeft size={24} />
-          </button>
-          <span className="font-semibold text-lg capitalize">
-            {format(startOfCurrentWeek, 'MMMM yyyy', { locale: fr })}
-          </span>
-          <button onClick={handleNextWeek} className="p-2 hover:bg-gray-100 rounded-full transition">
-            <ChevronRight size={24} />
-          </button>
+        <div className="relative hidden md:flex justify-center items-center min-h-80">
+          <div className="animate-float">
+            <BarberPole size="lg" />
+          </div>
+          <NextSlotCard slot={nextSlot} onPick={jumpToSlot} className="absolute bottom-0 -left-4 lg:left-0" />
         </div>
 
-        {/* Calendar Grid */}
-        <div className="p-4 overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="animate-spin text-gray-400" size={32} />
+        <NextSlotCard slot={nextSlot} onPick={jumpToSlot} className="md:hidden -mt-4" />
+      </section>
+
+      {/* Réservation */}
+      <section id="reserver" className="scroll-mt-20 max-w-4xl mx-auto px-4 sm:px-6 pb-24">
+        <div className="rounded-3xl border border-line bg-surface/80 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">
+          <div className="p-5 sm:p-8 border-b border-line flex items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display text-2xl sm:text-3xl">Réserver</h2>
+              <p className="text-muted text-sm mt-1 first-letter:uppercase">
+                {format(weekStart, 'd MMM', { locale: fr })} – {format(weekEnd, 'd MMM yyyy', { locale: fr })}
+              </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {weekDays.map((day) => {
-                const daySlots = slots.filter(s => isSameDay(new Date(s.startTime), day));
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+                disabled={isCurrentWeek}
+                aria-label="Semaine précédente"
+                className="size-10 grid place-items-center rounded-full border border-line hover:border-brass hover:text-brass transition disabled:opacity-30 disabled:pointer-events-none"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+                aria-label="Semaine suivante"
+                className="size-10 grid place-items-center rounded-full border border-line hover:border-brass hover:text-brass transition"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Jours de la semaine */}
+          <div className="px-3 sm:px-8 pt-6">
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
+              {weekDays.map(day => {
+                const count = freeCount(day);
+                const active = selectedDay && isSameDay(day, selectedDay);
+                const past = isBefore(day, startOfDay(new Date()));
                 return (
-                  <div key={day.toString()} className="border border-gray-100 rounded-lg p-4 bg-gray-50/50">
-                    <h3 className="font-medium text-center mb-3 capitalize text-gray-700">
-                      {format(day, 'EEEE d', { locale: fr })}
-                    </h3>
-                    <div className="space-y-2">
-                      {daySlots.length === 0 ? (
-                        <div className="text-center text-gray-400 text-xs py-2 italic">Aucun créneau</div>
-                      ) : (
-                        daySlots.map(slot => (
-                          <button
-                            key={slot.id}
-                            disabled={slot.isBooked}
-                            onClick={() => setSelectedSlot(slot)}
-                            className={`w-full py-2 px-3 rounded-md text-sm font-medium transition-all ${slot.isBooked
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed decoration-slice'
-                                : 'bg-white border border-gray-200 hover:border-black hover:shadow-md active:scale-95 text-black'
-                              }`}
-                          >
-                            {format(new Date(slot.startTime), 'HH:mm')}
-                            {slot.isBooked && <span className="ml-2 text-xs">(Pris)</span>}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => setSelectedDay(day)}
+                    disabled={past}
+                    className={`relative flex flex-col items-center rounded-2xl py-3 sm:py-4 border transition-all duration-300 ${active
+                      ? 'bg-brass text-ink border-brass shadow-[0_8px_30px_-10px_rgb(212_162_76/0.8)] -translate-y-0.5'
+                      : 'border-line hover:border-brass/60 hover:-translate-y-0.5'
+                      } disabled:opacity-30 disabled:pointer-events-none`}
+                  >
+                    <span className={`text-[11px] sm:text-xs uppercase tracking-wider ${active ? 'text-ink/70' : 'text-muted'}`}>
+                      {format(day, 'EEE', { locale: fr }).replace('.', '')}
+                    </span>
+                    <span className="font-display text-xl sm:text-2xl mt-0.5">{format(day, 'd')}</span>
+                    <span
+                      className={`mt-1.5 h-1.5 w-1.5 rounded-full transition-colors ${loading ? 'bg-transparent' : count > 0
+                        ? active ? 'bg-ink' : 'bg-sage'
+                        : 'bg-transparent'
+                        }`}
+                    />
+                    {isToday(day) && !active && (
+                      <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-1 w-1 rounded-full bg-brass" />
+                    )}
+                  </button>
                 );
               })}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* Booking Modal */}
-      {selectedSlot && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm animate-in fade-in zoom-in duration-200">
-            <h2 className="text-xl font-bold mb-4">Confirmer la réservation</h2>
-            <div className="mb-4">
-              <p className="text-gray-600">
-                Créneau : <span className="font-semibold text-black">
-                  {format(new Date(selectedSlot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
-                </span>
+          {/* Créneaux du jour */}
+          <div className="p-5 sm:p-8 min-h-64">
+            {selectedDay && (
+              <p className="text-sm text-muted mb-4 first-letter:uppercase">
+                {format(selectedDay, 'EEEE d MMMM', { locale: fr })}
+                {!loading && (
+                  <span> · {freeCount(selectedDay)} créneau{freeCount(selectedDay) > 1 ? 'x' : ''} disponible{freeCount(selectedDay) > 1 ? 's' : ''}</span>
+                )}
               </p>
-            </div>
+            )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Votre Prénom</label>
-                <input
-                  type="text"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  placeholder="Ex: Thomas"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-black focus:border-transparent outline-none transition"
-                  autoFocus
-                />
+            {loading ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="skeleton animate-shimmer h-14 rounded-xl" />
+                ))}
               </div>
+            ) : daySlots.length === 0 ? (
+              <div className="animate-fade-in flex flex-col items-center justify-center text-center py-12">
+                <div className="size-14 rounded-full bg-surface-2 grid place-items-center mb-4">
+                  <Scissors size={22} className="text-muted" />
+                </div>
+                <p className="font-medium">Aucun créneau ce jour-là</p>
+                <p className="text-sm text-muted mt-1">
+                  {nextSlot ? 'Essaie un autre jour ou ' : 'De nouveaux créneaux arrivent bientôt.'}
+                  {nextSlot && (
+                    <button onClick={() => jumpToSlot(nextSlot)} className="text-brass hover:underline">
+                      le prochain disponible
+                    </button>
+                  )}
+                </p>
+              </div>
+            ) : (
+              <div key={selectedDay?.toISOString()} className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {daySlots.map((slot, i) => {
+                  const free = isFree(slot);
+                  return (
+                    <button
+                      key={slot.id}
+                      disabled={!free}
+                      onClick={() => setSelectedSlot(slot)}
+                      style={{ animationDelay: `${i * 35}ms` }}
+                      className={`animate-scale-in group relative h-14 rounded-xl border text-base font-medium tabular-nums transition-all duration-200 ${free
+                        ? 'border-line bg-surface-2 hover:border-brass hover:bg-brass hover:text-ink hover:-translate-y-0.5 hover:shadow-lg active:scale-95'
+                        : 'border-transparent bg-surface-2/40 text-muted/50 cursor-not-allowed'
+                        }`}
+                    >
+                      {format(new Date(slot.startTime), 'HH:mm')}
+                      {!free && (
+                        <span className="block text-[10px] uppercase tracking-wider -mt-0.5">
+                          {slot.isBooked ? 'Pris' : 'Passé'}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
-              <div className="flex gap-3 pt-2">
+      {/* Comment ça marche */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-24">
+        <div className="grid sm:grid-cols-3 gap-4">
+          {[
+            { icon: CalendarDays, title: 'Choisis ton jour', text: 'Les jours avec des places libres sont marqués d’un point vert.' },
+            { icon: Clock, title: 'Choisis ton heure', text: 'Un clic sur un créneau et il est à toi pendant que tu remplis.' },
+            { icon: Scissors, title: 'Viens te faire couper', text: 'Ta réservation est confirmée tout de suite, rien à attendre.' },
+          ].map(({ icon: Icon, title, text }, i) => (
+            <div
+              key={title}
+              className="rounded-2xl border border-line bg-surface/60 p-6 hover:border-brass/50 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-display text-brass text-lg">0{i + 1}</span>
+                <Icon size={18} className="text-muted" />
+              </div>
+              <h3 className="font-medium">{title}</h3>
+              <p className="text-sm text-muted mt-1.5 leading-relaxed">{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="border-t border-line">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row gap-4 items-center justify-between text-sm text-muted">
+          <span>© {new Date().getFullYear()} {SHOP_NAME}</span>
+          <Link href="/admin" className="hover:text-cream transition-colors">Espace coiffeur</Link>
+        </div>
+      </footer>
+
+      {/* Fenêtre de réservation */}
+      {sheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <div className="animate-fade-in absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeSheet} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto"
+          >
+            <button
+              onClick={closeSheet}
+              aria-label="Fermer"
+              className="absolute top-4 right-4 size-9 grid place-items-center rounded-full text-muted hover:text-cream hover:bg-surface-2 transition"
+            >
+              <X size={18} />
+            </button>
+
+            {bookedSlot ? (
+              <div className="p-8 pt-10 text-center">
+                <svg viewBox="0 0 52 52" className="size-20 mx-auto mb-5">
+                  <circle cx="26" cy="26" r="24" fill="rgb(143 194 141 / 0.12)" stroke="#8fc28d" strokeWidth="2" className="animate-scale-in" />
+                  <path
+                    d="M15 27l7 7 15-15"
+                    fill="none"
+                    stroke="#8fc28d"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="48"
+                    className="animate-draw"
+                  />
+                </svg>
+                <h3 className="font-display text-3xl">C&apos;est réservé !</h3>
+                <p className="text-muted mt-3">On se voit</p>
+                <p className="text-lg font-medium mt-1 first-letter:uppercase">
+                  {format(new Date(bookedSlot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
+                </p>
                 <button
-                  onClick={() => setSelectedSlot(null)}
-                  className="flex-1 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition"
+                  onClick={closeSheet}
+                  className="mt-8 w-full rounded-full bg-brass text-ink font-semibold py-3.5 hover:bg-brass-light transition"
                 >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleBookSlot}
-                  disabled={!clientName.trim() || bookingLoading}
-                  className="flex-1 py-2 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex justify-center items-center gap-2"
-                >
-                  {bookingLoading && <Loader2 className="animate-spin" size={16} />}
-                  Réserver
+                  Parfait
                 </button>
               </div>
-            </div>
+            ) : selectedSlot && (
+              <form onSubmit={handleBookSlot} className="p-6 sm:p-8">
+                <p className="text-brass text-xs font-medium tracking-[0.2em] uppercase">Ta réservation</p>
+                <h3 className="font-display text-2xl mt-2 pr-8 first-letter:uppercase">
+                  {format(new Date(selectedSlot.startTime), 'EEEE d MMMM', { locale: fr })}
+                </h3>
+                <p className="flex items-center gap-2 text-muted mt-1">
+                  <Clock size={15} /> {format(new Date(selectedSlot.startTime), 'HH:mm')}
+                </p>
+
+                <div className="space-y-4 mt-7">
+                  <Field icon={UserRound} label="Prénom" required>
+                    <input
+                      type="text"
+                      value={clientName}
+                      onChange={e => setClientName(e.target.value)}
+                      placeholder="Thomas"
+                      autoComplete="given-name"
+                      maxLength={100}
+                      autoFocus
+                      required
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field icon={Phone} label="Téléphone" required>
+                    <input
+                      type="tel"
+                      value={clientPhone}
+                      onChange={e => setClientPhone(e.target.value)}
+                      placeholder="06 12 34 56 78"
+                      autoComplete="tel"
+                      required
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field icon={Mail} label="Email" hint="facultatif">
+                    <input
+                      type="email"
+                      value={clientEmail}
+                      onChange={e => setClientEmail(e.target.value)}
+                      placeholder="thomas@mail.com"
+                      autoComplete="email"
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+
+                {formError && (
+                  <p key={formError} className="animate-shake mt-4 text-sm text-rust">{formError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!clientName.trim() || !clientPhone.trim() || submitting}
+                  className="mt-7 w-full rounded-full bg-brass text-ink font-semibold py-3.5 hover:bg-brass-light transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
+                  Confirmer la réservation
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
+
+      {toasts}
     </div>
+  );
+}
+
+const inputClass =
+  'w-full bg-ink border border-line rounded-xl pl-11 pr-4 py-3 text-cream placeholder:text-muted/50 outline-none transition focus:border-brass focus:ring-4 focus:ring-brass/15';
+
+function Field({
+  icon: Icon, label, hint, required, children,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  hint?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-sm text-muted mb-1.5">
+        {label}
+        {required && <span className="text-brass"> *</span>}
+        {hint && <span className="text-muted/60"> ({hint})</span>}
+      </span>
+      <span className="relative block">
+        <Icon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+        {children}
+      </span>
+    </label>
+  );
+}
+
+function NextSlotCard({
+  slot, onPick, className = '',
+}: {
+  slot: Slot | null | undefined;
+  onPick: (slot: Slot) => void;
+  className?: string;
+}) {
+  if (slot === undefined) {
+    return <div className={`skeleton animate-shimmer h-[76px] w-64 rounded-2xl ${className}`} />;
+  }
+  return (
+    <button
+      onClick={() => slot && onPick(slot)}
+      disabled={!slot}
+      className={`animate-fade-up group text-left flex items-center gap-4 rounded-2xl border border-line bg-surface/90 backdrop-blur px-5 py-4 shadow-2xl shadow-black/50 hover:border-brass transition-colors disabled:pointer-events-none ${className}`}
+      style={{ animationDelay: '400ms' }}
+    >
+      <span className="relative flex size-2.5">
+        {slot && <span className="absolute inline-flex h-full w-full rounded-full bg-sage opacity-60 animate-ping" />}
+        <span className={`relative inline-flex size-2.5 rounded-full ${slot ? 'bg-sage' : 'bg-muted'}`} />
+      </span>
+      <span>
+        <span className="block text-xs text-muted">Prochain créneau libre</span>
+        <span className="block font-medium first-letter:uppercase">
+          {slot
+            ? format(new Date(slot.startTime), "EEEE d MMM 'à' HH:mm", { locale: fr })
+            : 'Bientôt de nouvelles dates'}
+        </span>
+      </span>
+      {slot && <ArrowRight size={16} className="text-brass ml-1 transition-transform group-hover:translate-x-1" />}
+    </button>
   );
 }
