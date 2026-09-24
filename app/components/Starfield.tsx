@@ -9,7 +9,7 @@ export function warp(strength = 1) {
 
 const DEPTH = 1000;       // profondeur maximale d'une étoile
 const FOCAL = 500;        // distance focale de la projection
-const BASE_SPEED = 0.15;  // unités de profondeur par milliseconde
+const BASE_SPEED = 0.07;  // unités de profondeur par milliseconde
 const COLORS = ['243,237,228', '243,237,228', '243,237,228', '230,187,108', '180,200,255'];
 
 type Star = { x: number; y: number; z: number; color: string };
@@ -115,7 +115,7 @@ export default function Starfield() {
         const onScroll = () => {
             const delta = Math.abs(window.scrollY - lastScroll);
             lastScroll = window.scrollY;
-            boost = Math.min(12, boost + delta * 0.04);
+            boost = Math.min(6, boost + delta * 0.02);
         };
 
         const onPointer = (e: PointerEvent) => {
@@ -135,7 +135,7 @@ export default function Starfield() {
             window.addEventListener('scroll', onScroll, { passive: true });
             window.addEventListener('pointermove', onPointer, { passive: true });
             // Petite entrée en hyperespace à l'ouverture de la page
-            boost = 14;
+            boost = 8;
         }
 
         return () => {
