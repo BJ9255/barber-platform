@@ -87,4 +87,6 @@ Le site est alors disponible sur [http://localhost:3000](http://localhost:3000) 
 
 ## Déploiement
 
-Le site est déployé sur Vercel avec le script [`deploy.sh`](deploy.sh), qui vérifie le code (TypeScript + ESLint) puis publie en production. Les variables `POSTGRES_URL` et `ADMIN_PASSWORD` doivent être configurées dans les paramètres du projet Vercel.
+Le site est hébergé sur Vercel et relié à ce dépôt : chaque push sur `main` est déployé automatiquement en production. Le script [`deploy.sh`](deploy.sh) permet aussi de déployer à la main depuis sa machine, après avoir vérifié le code (TypeScript + ESLint).
+
+Les variables `POSTGRES_URL` et `ADMIN_PASSWORD` doivent être configurées dans les paramètres du projet Vercel.
