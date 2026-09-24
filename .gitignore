@@ -42,3 +42,6 @@ next-env.d.ts
 
 /app/generated/prisma
 .env*.local
+
+# ancienne base SQLite locale (le projet utilise Postgres)
+/prisma/dev.db
