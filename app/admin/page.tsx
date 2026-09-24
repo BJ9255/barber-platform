@@ -6,9 +6,10 @@ import { format, isSameDay, isToday, isTomorrow, formatDistanceToNow } from 'dat
 import { fr } from 'date-fns/locale';
 import {
     Trash2, Plus, Loader2, Phone, Mail, Eye, EyeOff, ArrowLeft, LogOut, ExternalLink,
-    RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check,
+    RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check, Sparkles,
 } from 'lucide-react';
 import { BarberPole, Logo, useToasts } from '../components/ui';
+import { generateDemoSlots } from './demo';
 
 type Slot = {
     id: string;
@@ -40,6 +41,8 @@ export default function AdminPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [loginError, setLoginError] = useState('');
     const [loggingIn, setLoggingIn] = useState(false);
+    const [demo, setDemo] = useState(false);
+    const demoRef = useRef(false);
 
     const [slots, setSlots] = useState<Slot[]>([]);
     const [loading, setLoading] = useState(false);
@@ -66,6 +69,7 @@ export default function AdminPage() {
     }, [notify]);
 
     const fetchSlots = useCallback(async () => {
+        if (demoRef.current) return;
         setLoading(true);
         try {
             const res = await fetch('/api/admin/slots', { cache: 'no-store' });
@@ -80,7 +84,29 @@ export default function AdminPage() {
         }
     }, [handleUnauthorized, notify]);
 
+    const startDemo = () => {
+        demoRef.current = true;
+        setDemo(true);
+        setSlots(generateDemoSlots());
+        setIsAuthenticated(true);
+        setCheckingSession(false);
+        window.history.replaceState(null, '', '/admin?demo');
+    };
+
+    const exitDemo = () => {
+        demoRef.current = false;
+        setDemo(false);
+        setIsAuthenticated(false);
+        setSlots([]);
+        window.history.replaceState(null, '', '/admin');
+    };
+
     useEffect(() => {
+        // Lien direct vers la démo : /admin?demo
+        if (new URLSearchParams(window.location.search).has('demo')) {
+            startDemo();
+            return;
+        }
         // La session est un cookie httpOnly vérifié par le serveur
         fetch('/api/admin/session', { cache: 'no-store' })
             .then(res => res.json())
@@ -119,6 +145,7 @@ export default function AdminPage() {
     };
 
     const handleLogout = async () => {
+        if (demo) return exitDemo();
         await fetch('/api/admin/session', { method: 'DELETE' });
         setIsAuthenticated(false);
         setSlots([]);
@@ -138,6 +165,17 @@ export default function AdminPage() {
 
     const handleAddSlots = async () => {
         if (!newDate || selectedTimes.length === 0) return;
+        if (demo) {
+            const created = selectedTimes.map(time => ({
+                id: `demo-new-${newDate}-${time}`,
+                startTime: new Date(`${newDate}T${time}`).toISOString(),
+                isBooked: false,
+            }));
+            setSlots(prev => [...prev, ...created].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+            notify(`${created.length} créneau${created.length > 1 ? 'x' : ''} ajouté${created.length > 1 ? 's' : ''} (démo)`);
+            setSelectedTimes([]);
+            return;
+        }
         setAdding(true);
         try {
             const results = await Promise.all(
@@ -174,6 +212,12 @@ export default function AdminPage() {
             return;
         }
         setArmedDelete(null);
+
+        if (demo) {
+            setSlots(prev => prev.filter(s => s.id !== slot.id));
+            notify('Créneau supprimé (démo)');
+            return;
+        }
 
         const res = await fetch(`/api/admin/slots?id=${encodeURIComponent(slot.id)}`, { method: 'DELETE' });
         if (handleUnauthorized(res)) return;
@@ -238,6 +282,19 @@ export default function AdminPage() {
                         {loggingIn && <Loader2 className="animate-spin" size={18} />}
                         Entrer
                     </button>
+
+                    <div className="flex items-center gap-3 my-5 text-xs text-muted/70">
+                        <span className="h-px flex-1 bg-line" /> ou <span className="h-px flex-1 bg-line" />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={startDemo}
+                        className="w-full rounded-full border border-line hover:border-brass hover:text-brass-light py-3 transition flex items-center justify-center gap-2"
+                    >
+                        <Sparkles size={17} className="text-brass" />
+                        Voir la démo
+                    </button>
+                    <p className="text-xs text-muted/70 text-center mt-2">Données fictives, rien n&apos;est enregistré.</p>
                 </form>
                 <Link href="/" className="mt-6 flex items-center gap-2 text-sm text-muted hover:text-cream transition">
                     <ArrowLeft size={15} /> Retour au site
@@ -292,10 +349,18 @@ export default function AdminPage() {
                             className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
                         >
                             <LogOut size={15} />
-                            <span className="hidden sm:inline">Déconnexion</span>
+                            <span className="hidden sm:inline">{demo ? 'Quitter la démo' : 'Déconnexion'}</span>
                         </button>
                     </div>
                 </div>
+                {demo && (
+                    <div className="border-t border-brass/20 bg-brass/10 text-brass-light text-sm">
+                        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-center gap-2 text-center">
+                            <Sparkles size={15} className="shrink-0" />
+                            Mode démo : les clients sont fictifs et rien n&apos;est enregistré.
+                        </div>
+                    </div>
+                )}
             </header>
 
             <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
