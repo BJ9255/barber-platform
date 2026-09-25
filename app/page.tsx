@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { addDays, addWeeks, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ArrowRight, Bell, BellRing, CalendarPlus, Check, Loader2, Lock, Ticket } from 'lucide-react';
-import { BarberPole, Reveal, SERVICES, SHOP_NAME, useToasts } from './components/ui';
+import { ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Ticket } from 'lucide-react';
+import { BarberPole, Logo, Reveal, SERVICES, SHOP_NAME, useToasts } from './components/ui';
 import { warp } from './components/TicketRain';
 import {
   InstallButton, useInstallMode, getPushSubscription, pushErrorMessage, saveBooking, updateSavedBooking, type PushError,
@@ -19,32 +19,27 @@ type Slot = {
 
 // Jours proposés à la réservation
 const DAYS_AHEAD = 14;
-// Accueil : les premiers jours avec des places sont dépliés, avec quelques heures directement cliquables
-const OPEN_DAYS = 3;
-const TIMES_PER_DAY = 6;
 
 const isFree = (slot: Slot) => !slot.isBooked && new Date(slot.startTime) > new Date();
 const toDateParam = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dayWord = (d: Date) => (isToday(d) ? "Aujourd'hui" : isTomorrow(d) ? 'Demain' : format(d, 'EEEE', { locale: fr }));
+const shortDay = (d: Date) => (isToday(d) ? 'Auj.' : isTomorrow(d) ? 'Dem.' : format(d, 'EEE', { locale: fr }));
 
-const STEP_TITLES = ['Choisis ton créneau', 'Choisis ton heure', 'Plus qu’une étape'];
-// Le parcours vu par le client : choisir le jour et l'heure ne compte que pour une étape
-const TRACKER = ['Créneau', 'Tes infos', 'Réservé'];
-const trackerIndex = (step: number) => (step <= 1 ? 0 : step - 1);
+// Trois écrans : choisir un créneau, donner ses coordonnées, ticket confirmé
+type Step = 'choose' | 'details' | 'done';
+
 const HOW_IT_WORKS = [
-  ['Choisis ton créneau', 'Touche une des heures libres affichées.'],
-  ['Donne tes infos', 'Ton prénom et ton téléphone, sans créer de compte.'],
-  ['C’est réservé', 'Ton ticket est confirmé tout de suite, tu le retrouves dans « Mes RDV ».'],
+  ['Choisis un jour et une heure', 'Seules les heures encore libres sont affichées.'],
+  ['Donne ton prénom et ton téléphone', 'Pas de compte à créer, pas de mot de passe.'],
+  ['C’est réservé', 'Ton ticket est confirmé tout de suite et reste dans « Mes RDV ».'],
 ];
 
 export default function BookingPage() {
   const [slots, setSlots] = useState<Slot[] | undefined>(undefined);
-  const [step, setStep] = useState(0);
-  const [dir, setDir] = useState<1 | -1>(1);
+  const [step, setStep] = useState<Step>('choose');
   const [day, setDay] = useState<Date | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [tearing, setTearing] = useState<string | null>(null);
 
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -55,8 +50,6 @@ export default function BookingPage() {
   const [booked, setBooked] = useState<{ slot: Slot; name: string; token: string } | null>(null);
   const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
 
-  const [compact, setCompact] = useState(false);
-  const signRef = useRef<HTMLElement>(null);
   const { notify, toasts } = useToasts();
 
   // Créneaux des prochaines semaines (l'API les renvoie semaine par semaine, sans donnée client)
@@ -78,46 +71,23 @@ export default function BookingPage() {
 
   useEffect(() => { fetchSlots(); }, [fetchSlots]);
 
-  // Petite barre collée en haut quand l'enseigne sort de l'écran (téléphone)
-  useEffect(() => {
-    const el = signRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setCompact(!entry.isIntersecting));
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   const today = startOfDay(new Date());
-  const days = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i))
-    .filter(d => slots?.some(s => isSameDay(new Date(s.startTime), d)));
-  const freeOn = (d: Date) => slots?.filter(s => isFree(s) && isSameDay(new Date(s.startTime), d)).length ?? 0;
-  const openDays = days.filter(d => freeOn(d) > 0).slice(0, OPEN_DAYS);
-  const otherDays = days.filter(d => !openDays.includes(d));
+  const days = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i));
+  const freeOn = (d: Date) => (slots ?? []).filter(s => isFree(s) && isSameDay(new Date(s.startTime), d));
+  // Jour affiché : celui choisi, sinon le premier jour qui a encore de la place
+  const firstFreeDay = days.find(d => freeOn(d).length > 0) ?? null;
+  const activeDay = day ?? firstFreeDay;
+  const times = activeDay ? freeOn(activeDay) : [];
 
-  const goTo = (next: number, strength = 0.5) => {
-    setDir(next > step ? 1 : -1);
+  const goTo = (next: Step, strength = 0.5) => {
     setStep(next);
     warp(strength);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Le ticket choisi se détache avant de passer au formulaire
-  const pickTicket = (s: Slot) => {
-    setTearing(s.id);
-    setTimeout(() => {
-      setSlot(s);
-      setTearing(null);
-      setFormError('');
-      goTo(2);
-    }, 420);
-  };
-
-  // Un appui sur une heure depuis l'accueil mène directement au formulaire
-  const pickDirect = (s: Slot) => {
-    setDay(startOfDay(new Date(s.startTime)));
-    setSlot(s);
-    setFormError('');
-    goTo(2);
+  const chooseDay = (d: Date) => {
+    setDay(d);
+    setSlot(null);
   };
 
   const handleBook = async (e: React.FormEvent) => {
@@ -142,14 +112,15 @@ export default function BookingPage() {
         setClientName('');
         setClientPhone('');
         setClientEmail('');
-        goTo(3, 1.6);
+        setSlot(null);
+        goTo('done', 1.6);
         fetchSlots();
       } else if (res.status === 409) {
         // Quelqu'un a été plus rapide : retour au choix de l'heure, avec les créneaux à jour
         notify(data.error || 'Ce créneau vient d’être réservé', 'error');
         setSlot(null);
         fetchSlots();
-        goTo(1);
+        goTo('choose');
       } else {
         setFormError(data.error || 'Une erreur est survenue');
       }
@@ -185,316 +156,241 @@ export default function BookingPage() {
     setBooked(null);
     setSlot(null);
     setDay(null);
-    goTo(0);
+    goTo('choose');
   };
 
-  const enter = dir === 1 ? 'anim-from-right' : 'anim-from-left';
-  const daySlots = day ? (slots ?? []).filter(s => isSameDay(new Date(s.startTime), day)) : [];
+  const noSlotsAtAll = slots !== undefined && !firstFreeDay;
 
   return (
     <div className="min-h-dvh overflow-x-clip flex flex-col">
-      {compact && (
-        <div className="anim-bar safe-top lg:hidden fixed top-0 inset-x-0 z-40 bg-navy text-paper">
-          <div className="h-12 flex items-center justify-center gap-3">
-            <BarberPole size="sm" light />
-            <span className="font-slab text-lg">{SHOP_NAME}</span>
-            <BarberPole size="sm" light />
-          </div>
+      {/* Téléphone : barre fine et fixe, toujours à portée de pouce */}
+      <header className="safe-top lg:hidden sticky top-0 z-40 bg-navy/95 backdrop-blur border-b-2 border-red">
+        <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between gap-2">
+          <Logo light />
+          <nav className="flex items-center gap-1 text-sm">
+            <InstallButton className="press flex items-center gap-1.5 px-2.5 py-1 border-2 border-paper/60 font-bold" />
+            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-2 py-2 min-h-10 font-bold hover:text-gold transition">
+              <Ticket size={16} /> Mes RDV
+            </Link>
+          </nav>
         </div>
-      )}
+      </header>
 
       {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement */}
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        <header
-          ref={signRef}
-          className="safe-top relative px-5 pb-4 text-center bg-navy/80 border-b-4 border-red lg:bg-navy lg:border-b-0 lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
-        >
-          {/* Téléphone : raccourcis au-dessus de l'enseigne */}
-          <nav className="lg:hidden flex items-center justify-end gap-1 pt-1 -mr-2 max-w-md mx-auto text-sm">
-            <InstallButton className="press flex items-center gap-1.5 px-3 py-1 mr-1 border-2 border-paper font-bold hover:bg-paper hover:text-navy" />
-            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-3 py-2 min-h-10 font-bold hover:text-gold transition">
-              <Ticket size={16} /> Mes RDV
-            </Link>
-            <Link href="/admin" aria-label="Espace coiffeur" className="grid place-items-center size-10 hover:text-gold transition">
-              <Lock size={16} />
-            </Link>
-          </nav>
-
-          <div className="anim-swing flex items-center justify-center gap-3 lg:gap-8 lg:mt-0">
+        <aside className="hidden lg:flex lg:flex-col lg:justify-center lg:sticky lg:top-0 lg:h-dvh lg:px-14 xl:px-20 lg:py-12 bg-navy">
+          <div className="anim-swing flex items-center justify-center gap-8 text-center">
             <BarberPole size="lg" light />
             <div>
-              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-gold">Barbier · sur rendez-vous</p>
-              <h1 className="font-slab text-[32px] lg:text-[48px] xl:text-[62px] leading-none mt-1 lg:mt-3">{SHOP_NAME}</h1>
-              <p className="text-xs lg:text-lg mt-1.5 lg:mt-4">{SERVICES}</p>
+              <p className="text-sm font-bold uppercase tracking-[0.3em] text-gold">Barbier · sur rendez-vous</p>
+              <h1 className="font-slab text-[48px] xl:text-[62px] leading-none mt-3">{SHOP_NAME}</h1>
+              <p className="text-lg mt-4">{SERVICES}</p>
             </div>
             <BarberPole size="lg" light />
           </div>
-
-          <div className="hidden lg:block mt-14 text-left">
+          <div className="mt-14">
             <HowItWorks onDark />
             <nav className="mt-10 flex flex-wrap items-center gap-6 text-sm">
               <Link href="/mes-rdv" className="underline underline-offset-4 hover:text-gold transition">Mes RDV</Link>
               <Link href="/admin" className="underline underline-offset-4 hover:text-gold transition">Espace coiffeur</Link>
-              <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 border-2 border-paper text-paper font-bold hover:bg-paper hover:text-navy" />
+              <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 border-2 border-paper font-bold hover:bg-paper hover:text-navy" />
             </nav>
           </div>
-        </header>
+        </aside>
 
-        <div className="px-4 pt-6 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
-          <main className="max-w-md mx-auto lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:border-2 lg:border-navy lg:bg-paper-2 lg:text-navy lg:shadow-[8px_8px_0_rgba(0,0,0,.45)]">
-            {/* Suivi du parcours : les 3 étapes sont nommées, l'étape en cours est en rouge */}
-            <ol className="grid grid-cols-3 gap-1.5 text-xs font-bold uppercase tracking-[0.12em]">
-              {TRACKER.map((label, i) => {
-                const current = trackerIndex(step);
-                const state = i < current ? 'done' : i === current ? 'now' : 'todo';
-                return (
-                  <li key={label} className={state === 'todo' ? 'opacity-55' : state === 'now' ? 'text-gold lg:text-red' : ''}>
-                    <span className="h-1.5 block overflow-hidden bg-paper/20 lg:bg-line">
-                      <span className={`block h-full transition-transform duration-500 origin-left ${state === 'done' ? 'bg-paper lg:bg-navy' : 'bg-red'}`} style={{ transform: `scaleX(${state === 'todo' ? 0 : 1})` }} />
-                    </span>
-                    <span className="flex items-center gap-1 mt-2">
-                      {state === 'done' ? <Check size={13} className="shrink-0" /> : <span className="tabular-nums">{i + 1}.</span>}
-                      {label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
-            {step > 0 && step < 3 && (
-              <button onClick={() => goTo(step - 1)} className="mt-4 text-sm underline underline-offset-4 py-2 -my-2 hover:text-red">
-                ← {step === 1 ? 'Autres jours' : 'Changer de créneau'}
-              </button>
+        <main className={`px-4 pt-7 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'}`}>
+          <div className="max-w-md mx-auto lg:max-w-xl lg:mx-0">
+            {step === 'choose' && (
+              <div key="choose" className="anim-pop">
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-gold">{SERVICES}</p>
+                <h2 className="font-slab text-[34px] lg:text-5xl leading-none mt-2">Réserve ta coupe</h2>
+                <p className="text-sm mt-3 opacity-85">Choisis un jour, puis une heure. C&apos;est confirmé tout de suite, sans créer de compte.</p>
+
+                {noSlotsAtAll ? (
+                  <SoldOut />
+                ) : (
+                  <>
+                    <StepLabel n={1}>Choisis un jour</StepLabel>
+                    {/* Bande de jours qui défile horizontalement, comme un carnet de tickets */}
+                    <div className="-mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto snap-x pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {slots === undefined
+                        ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton animate-shimmer opacity-20 shrink-0 w-[62px] h-[86px]" />)
+                        : days.map(d => {
+                          const free = freeOn(d).length;
+                          const selected = activeDay && isSameDay(d, activeDay);
+                          return (
+                            <button
+                              key={d.toISOString()}
+                              onClick={() => chooseDay(d)}
+                              disabled={!free}
+                              aria-pressed={!!selected}
+                              className={`snap-start shrink-0 w-[62px] py-2 flex flex-col items-center border-2 transition-colors disabled:opacity-30 ${selected
+                                ? 'bg-ticket border-ticket text-navy'
+                                : 'border-paper/25 hover:border-paper/60'
+                                }`}
+                            >
+                              <span className="text-[11px] font-bold uppercase tracking-wider">{shortDay(d)}</span>
+                              <span className={`font-slab text-[26px] leading-tight ${selected ? 'text-red' : ''}`}>{format(d, 'd')}</span>
+                              <span className={`text-[10px] font-bold ${selected ? 'text-red' : free ? 'text-gold' : ''}`}>
+                                {free ? `${free} dispo` : '—'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+
+                    <StepLabel n={2}>
+                      Choisis une heure
+                      {activeDay && <span className="hidden sm:inline normal-case tracking-normal font-normal opacity-70"> · <span className="capitalize">{dayWord(activeDay)}</span> {format(activeDay, 'd MMMM', { locale: fr })}</span>}
+                    </StepLabel>
+                    {slots === undefined ? (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                        {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton animate-shimmer opacity-20 h-14" />)}
+                      </div>
+                    ) : (
+                      <div key={activeDay?.toISOString()} className="grid grid-cols-3 sm:grid-cols-4 gap-2.5">
+                        {times.map((s, i) => {
+                          const selected = slot?.id === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => { setSlot(selected ? null : s); setFormError(''); }}
+                              aria-pressed={selected}
+                              className={`notched anim-dispense py-3 font-slab text-2xl transition-colors ${selected ? 'bg-red text-paper' : 'bg-ticket hover:bg-gold'}`}
+                              style={{ animationDelay: `${i * 40}ms` }}
+                            >
+                              {format(new Date(s.startTime), 'HH:mm')}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Ordinateur : le créneau choisi et le bouton, sous la grille */}
+                    {slot && <div className="hidden lg:block mt-8"><ContinueBar slot={slot} onContinue={() => goTo('details')} /></div>}
+                  </>
+                )}
+
+                {/* Téléphone : rappel du fonctionnement sous la réservation */}
+                <section className="mt-14 lg:hidden">
+                  <HowItWorks plain />
+                </section>
+              </div>
             )}
 
-            {/* key = étape : l'écran est recréé, donc son animation d'entrée rejoue */}
-            <div key={step} className={enter}>
-              {step < 3 && <h2 className="font-slab text-[34px] leading-none mt-6">{STEP_TITLES[step]}</h2>}
-              {step === 0 && (
-                <p className="mt-3 text-sm">
-                  <strong>Touche une heure</strong> pour la réserver. Pas de compte à créer, c&apos;est confirmé tout de suite.
-                </p>
-              )}
-              {step === 2 && <p className="mt-3 text-sm">Ton prénom et ton téléphone, et le créneau est à toi.</p>}
+            {step === 'details' && slot && (
+              <form key="details" onSubmit={handleBook} className="anim-from-right space-y-5">
+                <button type="button" onClick={() => goTo('choose')} className="flex items-center gap-2 text-sm font-bold py-2 -my-2 hover:text-gold transition">
+                  <ArrowLeft size={16} /> Changer d&apos;heure
+                </button>
+                <h2 className="font-slab text-[34px] lg:text-5xl leading-none">Tes coordonnées</h2>
 
-              {step === 0 && (
-                <>
-
-                  {slots === undefined ? (
-                    <div className="mt-5 space-y-2.5">
-                      {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton animate-shimmer h-[70px]" />)}
-                    </div>
-                  ) : days.length === 0 ? (
-                    <SoldOut />
-                  ) : (
-                    <>
-                    <ul className="mt-5 space-y-4">
-                      {openDays.map((d, i) => {
-                        const free = (slots ?? []).filter(s => isFree(s) && isSameDay(new Date(s.startTime), d));
-                        const more = free.length - TIMES_PER_DAY;
-                        return (
-                          <li key={d.toISOString()}>
-                            <Reveal delay={i * 80}>
-                              <div className="bg-paper-2 border-2 border-navy/15 lg:border-navy lg:shadow-[4px_4px_0_#1c2b4a]">
-                                <button
-                                  onClick={() => { setDay(d); goTo(1); }}
-                                  className="w-full flex items-center gap-3 px-4 pt-3 pb-2 text-left hover:text-red transition-colors"
-                                >
-                                  <span className="font-slab text-3xl w-10 text-center text-red">{format(d, 'd')}</span>
-                                  <span className="flex-1">
-                                    <span className="block text-lg font-bold capitalize leading-tight">{dayWord(d)}</span>
-                                    <span className="block text-sm capitalize">{format(d, 'MMMM', { locale: fr })}</span>
-                                  </span>
-                                  <span className="text-sm font-bold text-right">
-                                    {free.length} place{free.length > 1 ? 's' : ''}
-                                    <span className="block font-normal text-xs text-muted">libre{free.length > 1 ? 's' : ''}</span>
-                                  </span>
-                                </button>
-                                <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-1">
-                                  {free.slice(0, TIMES_PER_DAY).map((s, j) => (
-                                    <button
-                                      key={s.id}
-                                      onClick={() => pickDirect(s)}
-                                      className="press anim-dispense py-1.5 border-2 border-navy bg-ticket font-slab text-lg lg:py-2 lg:text-xl hover:bg-navy hover:text-paper transition-colors lg:notched lg:border-0 lg:bg-navy lg:text-paper"
-                                      style={{ animationDelay: `${150 + i * 80 + j * 50}ms` }}
-                                    >
-                                      {format(new Date(s.startTime), 'HH:mm')}
-                                    </button>
-                                  ))}
-                                </div>
-                                {more > 0 && (
-                                  <button
-                                    onClick={() => { setDay(d); goTo(1); }}
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 border-t-2 border-dashed border-navy/30 text-sm font-bold hover:text-red transition-colors"
-                                  >
-                                    + {more} autre{more > 1 ? 's' : ''} horaire{more > 1 ? 's' : ''} ce jour-là <ArrowRight size={15} />
-                                  </button>
-                                )}
-                              </div>
-                            </Reveal>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {otherDays.length > 0 && (
-                      <p className="mt-8 text-sm font-bold uppercase tracking-[0.2em]">Autres jours</p>
-                    )}
-                    <ul className="mt-3 space-y-2.5">
-                      {otherDays.map((d, i) => {
-                        const free = freeOn(d);
-                        return (
-                          <li key={d.toISOString()}>
-                            <Reveal delay={Math.min(i, 4) * 60}>
-                              <button
-                                disabled={!free}
-                                onClick={() => { setDay(d); goTo(1); }}
-                                className="card-hard press w-full flex items-center gap-4 px-4 py-3 text-left disabled:opacity-45 disabled:shadow-none"
-                              >
-                                <span className="font-slab text-4xl w-14 text-center text-red">{format(d, 'd')}</span>
-                                <span className="flex-1">
-                                  <span className="block text-lg font-bold capitalize">{dayWord(d)}</span>
-                                  <span className="block text-sm capitalize">{format(d, 'MMMM', { locale: fr })}</span>
-                                </span>
-                                <span className="text-sm font-bold">{free ? `${free} place${free > 1 ? 's' : ''}` : 'Complet'}</span>
-                              </button>
-                            </Reveal>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    </>
-                  )}
-                </>
-              )}
-
-              {step === 1 && day && (
-                <>
-                  <p className="mt-2 capitalize font-bold">{format(day, 'EEEE d MMMM', { locale: fr })}</p>
-                  <p className="mt-1 text-sm">Touche une heure pour la réserver.</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
-                    {daySlots.map((s, i) => {
-                      const free = isFree(s);
-                      return (
-                        <button
-                          key={s.id}
-                          disabled={!free || tearing !== null}
-                          onClick={() => pickTicket(s)}
-                          className={`notched py-3 text-center bg-ticket lg:bg-navy lg:text-paper disabled:cursor-default ${tearing === s.id ? 'anim-tear' : 'anim-dispense'} ${free ? '' : 'opacity-30'}`}
-                          style={{ animationDelay: tearing === s.id ? '0ms' : `${120 + i * 70}ms` }}
-                        >
-                          <span className="block text-[10px] uppercase tracking-[0.3em]">{free ? 'N°' : s.isBooked ? 'Pris' : 'Passé'}</span>
-                          <span className={`font-slab block text-3xl ${free ? '' : 'line-through'}`}>{format(new Date(s.startTime), 'HH:mm')}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {step === 2 && slot && (
-                <form onSubmit={handleBook} className="mt-2 space-y-5">
-                  <p className="notched px-5 py-3 bg-ticket font-bold first-letter:uppercase lg:bg-navy lg:text-paper">
-                    <Ticket size={16} className="inline -mt-1 mr-2 text-red lg:text-gold" />
-                    {format(new Date(slot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
-                  </p>
-                  <Reveal>
-                    <Field label="Prénom" required>
-                      <input
-                        type="text" value={clientName} onChange={e => setClientName(e.target.value)}
-                        autoComplete="given-name" maxLength={100} enterKeyHint="next" required className={inputClass}
-                      />
-                    </Field>
-                  </Reveal>
-                  <Reveal delay={90}>
-                    <Field label="Téléphone" required>
-                      <input
-                        type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)}
-                        autoComplete="tel" enterKeyHint="next" required className={inputClass}
-                      />
-                    </Field>
-                  </Reveal>
-                  <Reveal delay={180}>
-                    <Field label="Email" hint="facultatif">
-                      <input
-                        type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)}
-                        autoComplete="email" enterKeyHint="done" className={inputClass}
-                      />
-                    </Field>
-                  </Reveal>
-                  {formError && <p key={formError} className="animate-shake text-sm font-bold text-red">{formError}</p>}
-                  <Reveal delay={270}>
-                    <button
-                      disabled={!clientName.trim() || !clientPhone.trim() || submitting}
-                      className="press font-slab w-full py-4 text-xl bg-red text-paper shadow-[4px_4px_0_#1c2b4a] flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {submitting && <Loader2 size={20} className="animate-spin" />}
-                      Prendre mon ticket
-                    </button>
-                  </Reveal>
-                </form>
-              )}
-
-              {step === 3 && booked && (
-                <div className="mt-4">
-                  <h2 className="font-slab text-4xl text-center">À bientôt !</h2>
-                  {/* Fente du distributeur, d'où sort le ticket */}
-                  <div className="mt-6 mx-2 h-3 rounded-full bg-navy" />
-                  <div className="relative -mt-1.5 mx-4">
-                    <div className="notched anim-print px-6 py-7 bg-ticket shadow-[0_12px_30px_-12px_rgba(28,43,74,.4)]">
-                      <p className="text-center text-xs font-bold uppercase tracking-[0.35em] text-red">Ticket de passage</p>
-                      <p className="font-slab text-center text-6xl mt-3">{format(new Date(booked.slot.startTime), 'HH:mm')}</p>
-                      <p className="text-center text-lg font-bold capitalize mt-1">{format(new Date(booked.slot.startTime), 'EEEE d MMMM', { locale: fr })}</p>
-                      <div className="my-5 border-t-2 border-dashed border-navy/40" />
-                      <div className="flex justify-between text-sm"><span>Au nom de</span><strong>{booked.name}</strong></div>
-                      <div className="flex justify-between text-sm mt-1"><span>Chez</span><strong>{SHOP_NAME}</strong></div>
-                      <div className="mt-5 h-10" style={{ background: 'repeating-linear-gradient(90deg, #1c2b4a 0 2px, transparent 2px 5px, #1c2b4a 5px 6px, transparent 6px 9px)' }} />
-                    </div>
-                    <div className="font-slab anim-stamp absolute right-3 bottom-6 px-3 py-1 text-2xl text-red border-4 border-red mix-blend-multiply" style={{ animationDelay: '1.1s' }}>
-                      VALIDÉ
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mt-8">
-                    <a
-                      href={`/api/calendar/${booked.slot.id}`}
-                      target="_blank"
-                      rel="noopener"
-                      className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
-                    >
-                      <CalendarPlus size={18} className="text-red" /> Calendrier
-                    </a>
-                    <button
-                      onClick={enableReminder}
-                      disabled={reminder !== 'idle'}
-                      className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
-                    >
-                      {reminder === 'loading' ? <Loader2 size={18} className="animate-spin" />
-                        : reminder === 'on' ? <BellRing size={18} className="text-ok" />
-                          : <Bell size={18} className="text-red" />}
-                      {reminder === 'on' ? 'Rappel activé' : 'Me rappeler'}
-                    </button>
-                  </div>
-                  <p className="text-center text-sm mt-6">
-                    Retrouve ou annule ton ticket dans <Link href="/mes-rdv" className="font-bold underline underline-offset-4 text-gold lg:text-red">Mes RDV</Link>
-                  </p>
-                  <button onClick={restart} className="w-full mt-3 py-3 underline underline-offset-4 hover:text-red">
-                    Réserver un autre créneau
+                {/* Récapitulatif du créneau, sous forme de ticket */}
+                <div className="notched bg-ticket px-6 py-4 flex items-center gap-4">
+                  <span className="font-slab text-4xl text-red">{format(new Date(slot.startTime), 'HH:mm')}</span>
+                  <span className="flex-1 font-bold leading-tight first-letter:uppercase">
+                    {format(new Date(slot.startTime), 'EEEE d MMMM', { locale: fr })}
+                    <span className="block text-sm font-normal">Chez {SHOP_NAME}</span>
+                  </span>
+                  <button type="button" onClick={() => goTo('choose')} className="text-sm font-bold underline underline-offset-4 hover:text-red">
+                    Modifier
                   </button>
                 </div>
-              )}
-            </div>
 
-          </main>
+                <Field label="Prénom" required>
+                  <input
+                    type="text" value={clientName} onChange={e => setClientName(e.target.value)}
+                    autoComplete="given-name" maxLength={100} enterKeyHint="next" required className={inputClass}
+                  />
+                </Field>
+                <Field label="Téléphone" hint="en cas d’imprévu" required>
+                  <input
+                    type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)}
+                    autoComplete="tel" enterKeyHint="next" required className={inputClass}
+                  />
+                </Field>
+                <Field label="Email" hint="facultatif">
+                  <input
+                    type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)}
+                    autoComplete="email" enterKeyHint="done" className={inputClass}
+                  />
+                </Field>
+                {formError && <p key={formError} className="animate-shake text-sm font-bold text-gold">{formError}</p>}
+                <button
+                  disabled={!clientName.trim() || !clientPhone.trim() || submitting}
+                  className="press font-slab w-full py-4 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)] flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {submitting && <Loader2 size={20} className="animate-spin" />}
+                  Confirmer ma réservation
+                </button>
+                <p className="text-xs text-center opacity-70">Tu pourras annuler à tout moment depuis « Mes RDV ».</p>
+              </form>
+            )}
 
-          {/* Téléphone : « Comment ça se passe » sous le choix du jour, qui apparaît au défilement */}
-          {step === 0 && (
-            <section className="max-w-md mx-auto mt-12 lg:hidden">
-              <HowItWorks plain />
-            </section>
-          )}
-        </div>
+            {step === 'done' && booked && (
+              <div key="done" className="anim-pop">
+                <h2 className="font-slab text-4xl text-center">C&apos;est réservé !</h2>
+                <p className="text-center text-sm mt-2 opacity-85">À bientôt chez {SHOP_NAME}.</p>
+                {/* Fente du distributeur, d'où sort le ticket */}
+                <div className="mt-6 mx-2 h-3 rounded-full bg-black/40" />
+                <div className="relative -mt-1.5 mx-4">
+                  <div className="notched anim-print px-6 py-7 bg-ticket shadow-[0_12px_30px_-12px_rgba(0,0,0,.6)]">
+                    <p className="text-center text-xs font-bold uppercase tracking-[0.35em] text-red">Ticket de passage</p>
+                    <p className="font-slab text-center text-6xl mt-3">{format(new Date(booked.slot.startTime), 'HH:mm')}</p>
+                    <p className="text-center text-lg font-bold capitalize mt-1">{format(new Date(booked.slot.startTime), 'EEEE d MMMM', { locale: fr })}</p>
+                    <div className="my-5 border-t-2 border-dashed border-navy/40" />
+                    <div className="flex justify-between text-sm"><span>Au nom de</span><strong>{booked.name}</strong></div>
+                    <div className="flex justify-between text-sm mt-1"><span>Chez</span><strong>{SHOP_NAME}</strong></div>
+                    <div className="mt-5 h-10" style={{ background: 'repeating-linear-gradient(90deg, #1c2b4a 0 2px, transparent 2px 5px, #1c2b4a 5px 6px, transparent 6px 9px)' }} />
+                  </div>
+                  <div className="font-slab anim-stamp absolute right-3 bottom-6 px-3 py-1 text-2xl text-red border-4 border-red mix-blend-multiply" style={{ animationDelay: '1.1s' }}>
+                    VALIDÉ
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-8">
+                  <a
+                    href={`/api/calendar/${booked.slot.id}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
+                  >
+                    <CalendarPlus size={18} className="text-red" /> Calendrier
+                  </a>
+                  <button
+                    onClick={enableReminder}
+                    disabled={reminder !== 'idle'}
+                    className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
+                  >
+                    {reminder === 'loading' ? <Loader2 size={18} className="animate-spin" />
+                      : reminder === 'on' ? <BellRing size={18} className="text-ok" />
+                        : <Bell size={18} className="text-red" />}
+                    {reminder === 'on' ? 'Rappel activé' : 'Me rappeler'}
+                  </button>
+                </div>
+                <p className="text-center text-sm mt-6">
+                  Retrouve ou annule ton ticket dans <Link href="/mes-rdv" className="font-bold underline underline-offset-4 text-gold">Mes RDV</Link>
+                </p>
+                <button onClick={restart} className="w-full mt-3 py-3 underline underline-offset-4 hover:text-gold">
+                  Réserver un autre créneau
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
 
-      <footer className="lg:hidden safe-bottom px-5 py-8 text-sm bg-navy text-paper">
+      {/* Téléphone : le créneau choisi reste collé en bas de l'écran, hors des blocs animés
+          (un parent animé avec « transform » empêcherait la barre de rester fixe) */}
+      {step === 'choose' && slot && (
+        <div className="lg:hidden anim-sheet-up fixed bottom-0 inset-x-0 z-40 safe-bottom bg-night/95 backdrop-blur border-t-2 border-paper/15">
+          <div className="max-w-md mx-auto px-4 py-3">
+            <ContinueBar slot={slot} onContinue={() => goTo('details')} />
+          </div>
+        </div>
+      )}
+
+      <footer className="lg:hidden safe-bottom px-5 py-8 text-sm bg-navy">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <span className="font-slab text-lg">{SHOP_NAME}</span>
           <span className="flex gap-4">
@@ -509,15 +405,43 @@ export default function BookingPage() {
   );
 }
 
+// Créneau choisi + bouton pour passer aux coordonnées
+function ContinueBar({ slot, onContinue }: { slot: Slot; onContinue: () => void }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-xs opacity-75 first-letter:uppercase truncate">{format(new Date(slot.startTime), 'EEEE d MMMM', { locale: fr })}</p>
+        <p className="font-slab text-2xl leading-tight">{format(new Date(slot.startTime), 'HH:mm')}</p>
+      </div>
+      <button
+        onClick={onContinue}
+        className="press font-slab shrink-0 flex items-center gap-2 px-6 py-3.5 text-lg bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)]"
+      >
+        Continuer <ArrowRight size={20} />
+      </button>
+    </div>
+  );
+}
+
+// Petit intitulé numéroté au-dessus de chaque choix : on sait toujours quoi faire ensuite
+function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <p className="mt-8 mb-3 flex items-center gap-2.5 text-sm font-bold uppercase tracking-[0.15em]">
+      <span className="size-6 shrink-0 grid place-items-center bg-gold text-navy font-slab text-sm tracking-normal">{n}</span>
+      <span>{children}</span>
+    </p>
+  );
+}
+
 const inputClass =
-  'w-full mt-1 px-3 py-3 text-lg bg-paper-2 border-2 border-navy outline-none transition-shadow focus:shadow-[4px_4px_0_#b3261e]';
+  'w-full mt-1.5 px-3 py-3 text-lg bg-paper-2 border-2 border-paper-2 outline-none transition-shadow focus:shadow-[4px_4px_0_#b3261e]';
 
 function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="text-sm font-bold uppercase tracking-[0.15em]">
         {label}
-        {required && <span className="text-red"> *</span>}
+        {required && <span className="text-gold"> *</span>}
         {hint && <span className="normal-case tracking-normal font-normal opacity-70"> ({hint})</span>}
       </span>
       {children}
@@ -525,9 +449,8 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
   );
 }
 
-// Les 3 étapes, en tickets qui apparaissent au défilement
+// Les 3 étapes : en tickets sur ordinateur, en simple liste numérotée sur téléphone
 function HowItWorks({ onDark = false, plain = false }: { onDark?: boolean; plain?: boolean }) {
-  // Téléphone : une simple liste numérotée, sans blocs, pour alléger la page
   if (plain) {
     return (
       <>
@@ -576,37 +499,37 @@ function HowItWorks({ onDark = false, plain = false }: { onDark?: boolean; plain
 function SoldOut() {
   const installable = useInstallMode();
   return (
-    <div className="mt-5">
+    <div className="mt-8">
       <div className="relative">
         {/* Fente du distributeur : un ticket vierge dépasse, rentre et ressort */}
-        <div className="h-3 rounded-full bg-navy" />
+        <div className="h-3 rounded-full bg-black/40" />
         <div className="mx-6 -mt-1.5 h-24 overflow-hidden">
-          <div className="anim-peek notched mx-auto w-full h-full bg-ticket border-x-2 border-b-2 border-dashed border-navy/40 flex items-end justify-start pl-5 pb-3">
+          <div className="anim-peek notched mx-auto w-full h-full bg-ticket flex items-end justify-start pl-5 pb-3">
             <span className="text-xs font-bold uppercase tracking-[0.35em] text-muted">Bientôt</span>
           </div>
         </div>
-        <div className="font-slab anim-stamp absolute -right-1 top-14 px-3 py-0.5 text-2xl text-red border-4 border-red bg-paper-2/60" style={{ animationDelay: '0.4s' }}>
+        <div className="font-slab anim-stamp absolute -right-1 top-14 px-3 py-0.5 text-2xl text-red border-4 border-red bg-ticket/80" style={{ animationDelay: '0.4s' }}>
           COMPLET
         </div>
       </div>
 
       <h3 className="font-slab text-2xl text-center mt-6">Tout est pris pour l&apos;instant</h3>
-      <p className="text-center text-sm mt-2">
+      <p className="text-center text-sm mt-2 opacity-85">
         Les nouveaux créneaux sont ouverts au fil de la semaine, souvent la veille pour le lendemain.
       </p>
 
-      <ul className="mt-6 border-t-2 border-dashed border-navy/30 divide-y-2 divide-dashed divide-navy/15 text-sm">
+      <ul className="mt-6 border-t-2 border-dashed border-paper/20 divide-y-2 divide-dashed divide-paper/15 text-sm">
         {installable && (
           <li className="flex items-center gap-3 py-3">
-            <Bell size={18} className="text-red shrink-0" />
+            <Bell size={18} className="text-gold shrink-0" />
             <span className="flex-1">Installe l&apos;app pour revenir en un geste.</span>
-            <InstallButton className="press shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-2 border-navy bg-ticket font-bold shadow-[2px_2px_0_#1c2b4a]" />
+            <InstallButton className="press shrink-0 flex items-center gap-1.5 px-3 py-1.5 border-2 border-paper font-bold" />
           </li>
         )}
         <li className="flex items-center gap-3 py-3">
-          <Ticket size={18} className="text-red shrink-0" />
+          <Ticket size={18} className="text-gold shrink-0" />
           <span className="flex-1">Déjà un ticket ? Retrouve-le ou annule-le.</span>
-          <Link href="/mes-rdv" className="shrink-0 font-bold underline underline-offset-4 hover:text-red py-1">Mes RDV</Link>
+          <Link href="/mes-rdv" className="shrink-0 font-bold underline underline-offset-4 hover:text-gold py-1">Mes RDV</Link>
         </li>
       </ul>
     </div>
