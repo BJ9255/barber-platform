@@ -19,6 +19,9 @@ type Slot = {
 
 // Jours proposés à la réservation
 const DAYS_AHEAD = 14;
+// Accueil : les premiers jours avec des places sont dépliés, avec quelques heures directement cliquables
+const OPEN_DAYS = 3;
+const TIMES_PER_DAY = 6;
 
 const isFree = (slot: Slot) => !slot.isBooked && new Date(slot.startTime) > new Date();
 const toDateParam = (d: Date) =>
@@ -85,7 +88,8 @@ export default function BookingPage() {
   const days = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i))
     .filter(d => slots?.some(s => isSameDay(new Date(s.startTime), d)));
   const freeOn = (d: Date) => slots?.filter(s => isFree(s) && isSameDay(new Date(s.startTime), d)).length ?? 0;
-  const nextFree = slots?.find(isFree) ?? null;
+  const openDays = days.filter(d => freeOn(d) > 0).slice(0, OPEN_DAYS);
+  const otherDays = days.filter(d => !openDays.includes(d));
 
   const goTo = (next: number, strength = 0.5) => {
     setDir(next > step ? 1 : -1);
@@ -105,10 +109,10 @@ export default function BookingPage() {
     }, 420);
   };
 
-  const jumpToNext = () => {
-    if (!nextFree) return;
-    setDay(startOfDay(new Date(nextFree.startTime)));
-    setSlot(nextFree);
+  // Un appui sur une heure depuis l'accueil mène directement au formulaire
+  const pickDirect = (s: Slot) => {
+    setDay(startOfDay(new Date(s.startTime)));
+    setSlot(s);
     setFormError('');
     goTo(2);
   };
@@ -259,20 +263,6 @@ export default function BookingPage() {
 
               {step === 0 && (
                 <>
-                  {nextFree && (
-                    <button
-                      onClick={jumpToNext}
-                      className="notched press w-full mt-5 px-6 py-4 flex items-center justify-between gap-3 bg-navy text-paper text-left"
-                    >
-                      <span>
-                        <span className="block text-[11px] font-bold uppercase tracking-[0.25em] text-gold">Prochaine place libre</span>
-                        <span className="block font-slab text-2xl mt-0.5 first-letter:uppercase">
-                          {dayWord(new Date(nextFree.startTime))} · {format(new Date(nextFree.startTime), 'HH:mm')}
-                        </span>
-                      </span>
-                      <ArrowRight size={22} className="shrink-0" />
-                    </button>
-                  )}
 
                   {slots === undefined ? (
                     <div className="mt-5 space-y-2.5">
@@ -281,8 +271,57 @@ export default function BookingPage() {
                   ) : days.length === 0 ? (
                     <SoldOut />
                   ) : (
-                    <ul className="mt-5 space-y-2.5">
-                      {days.map((d, i) => {
+                    <>
+                    <ul className="mt-5 space-y-4">
+                      {openDays.map((d, i) => {
+                        const free = (slots ?? []).filter(s => isFree(s) && isSameDay(new Date(s.startTime), d));
+                        const more = free.length - TIMES_PER_DAY;
+                        return (
+                          <li key={d.toISOString()}>
+                            <Reveal delay={i * 80}>
+                              <div className="card-hard">
+                                <button
+                                  onClick={() => { setDay(d); goTo(1); }}
+                                  className="w-full flex items-center gap-3 px-4 pt-3 pb-2 text-left hover:text-red transition-colors"
+                                >
+                                  <span className="font-slab text-3xl w-10 text-center text-red">{format(d, 'd')}</span>
+                                  <span className="flex-1">
+                                    <span className="block text-lg font-bold capitalize leading-tight">{dayWord(d)}</span>
+                                    <span className="block text-sm capitalize">{format(d, 'MMMM', { locale: fr })}</span>
+                                  </span>
+                                  <span className="text-sm font-bold">{free.length} place{free.length > 1 ? 's' : ''}</span>
+                                </button>
+                                <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-1">
+                                  {free.slice(0, TIMES_PER_DAY).map((s, j) => (
+                                    <button
+                                      key={s.id}
+                                      onClick={() => pickDirect(s)}
+                                      className="notched press anim-dispense py-2 bg-navy text-paper font-slab text-xl"
+                                      style={{ animationDelay: `${150 + i * 80 + j * 50}ms` }}
+                                    >
+                                      {format(new Date(s.startTime), 'HH:mm')}
+                                    </button>
+                                  ))}
+                                </div>
+                                {more > 0 && (
+                                  <button
+                                    onClick={() => { setDay(d); goTo(1); }}
+                                    className="w-full flex items-center justify-center gap-2 py-2.5 border-t-2 border-dashed border-navy/30 text-sm font-bold hover:text-red transition-colors"
+                                  >
+                                    + {more} autre{more > 1 ? 's' : ''} horaire{more > 1 ? 's' : ''} ce jour-là <ArrowRight size={15} />
+                                  </button>
+                                )}
+                              </div>
+                            </Reveal>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {otherDays.length > 0 && (
+                      <p className="mt-8 text-sm font-bold uppercase tracking-[0.2em]">Autres jours</p>
+                    )}
+                    <ul className="mt-3 space-y-2.5">
+                      {otherDays.map((d, i) => {
                         const free = freeOn(d);
                         return (
                           <li key={d.toISOString()}>
@@ -304,6 +343,7 @@ export default function BookingPage() {
                         );
                       })}
                     </ul>
+                    </>
                   )}
                 </>
               )}
