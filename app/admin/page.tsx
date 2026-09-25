@@ -7,7 +7,7 @@ import { fr } from 'date-fns/locale';
 import {
     Trash2, Plus, Loader2, Phone, Mail, Eye, EyeOff, ArrowLeft, LogOut, ExternalLink,
     RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check, Sparkles, Bell, BellRing,
-    ChevronLeft, ChevronRight,
+    ChevronLeft, ChevronRight, CalendarDays, Settings,
 } from 'lucide-react';
 import { BarberPole, Logo, Reveal, useToasts } from '../components/ui';
 import { generateDemoSlots } from './demo';
@@ -24,6 +24,8 @@ type Slot = {
 };
 
 type Filter = 'all' | 'booked' | 'free';
+// Téléphone : l'espace coiffeur est découpé en onglets pour ne pas tout empiler
+type Tab = 'planning' | 'ouvrir' | 'reglages';
 
 // Sur téléphone, on n'ouvre pas le clavier d'office à l'arrivée sur la page
 const canAutoFocus = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
@@ -53,6 +55,9 @@ export default function AdminPage() {
     const [slots, setSlots] = useState<Slot[]>([]);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<Filter>('all');
+    const [tab, setTab] = useState<Tab>('planning');
+    // Sur ordinateur tout reste visible ; sur téléphone, seul l'onglet choisi s'affiche
+    const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
     const [armedDelete, setArmedDelete] = useState<string | null>(null);
     const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -219,6 +224,7 @@ export default function AdminPage() {
             }));
             setSlots(prev => [...prev, ...created].sort((a, b) => a.startTime.localeCompare(b.startTime)));
             notify(`${created.length} créneau${created.length > 1 ? 'x' : ''} ajouté${created.length > 1 ? 's' : ''} (démo)`);
+            setTab('planning');
             setSelectedTimes([]);
             return;
         }
@@ -237,7 +243,10 @@ export default function AdminPage() {
 
             const ok = results.filter(r => r.ok).length;
             const failed = results.length - ok;
-            if (ok > 0) notify(`${ok} créneau${ok > 1 ? 'x' : ''} ajouté${ok > 1 ? 's' : ''}`);
+            if (ok > 0) {
+                notify(`${ok} créneau${ok > 1 ? 'x' : ''} ajouté${ok > 1 ? 's' : ''}`);
+                setTab('planning');
+            }
             if (failed > 0) notify(`${failed} créneau${failed > 1 ? 'x' : ''} en erreur`, 'error');
             setSelectedTimes([]);
             fetchSlots();
@@ -408,24 +417,28 @@ export default function AdminPage() {
                     <div className="bg-gold text-navy text-sm font-bold">
                         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-center gap-2 text-center">
                             <Sparkles size={15} className="shrink-0" />
-                            Mode démo : les clients sont fictifs et rien n&apos;est enregistré.
+                            Démo coiffeur : clients fictifs, rien n&apos;est enregistré.
+                            <Link href="/demo" className="underline underline-offset-2 shrink-0">Changer</Link>
                         </div>
                     </div>
                 )}
             </header>
 
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-                <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-28 lg:py-14">
+                <div className="flex flex-wrap items-end justify-between gap-4 mb-6 lg:mb-10">
                     <div className="anim-swing flex items-center gap-4">
                         <BarberPole light />
                         <div>
                             <p className="text-sm font-bold uppercase tracking-[0.25em] text-gold">
                                 {format(now, 'EEEE d MMMM', { locale: fr })}
                             </p>
-                            <h1 className="font-slab text-4xl sm:text-5xl leading-none mt-1">Tableau de bord</h1>
+                            <h1 className="font-slab text-[32px] sm:text-5xl leading-none mt-1">
+                                <span className="lg:hidden">{{ planning: 'Mon planning', ouvrir: 'Ouvrir des créneaux', reglages: 'Réglages' }[tab]}</span>
+                                <span className="hidden lg:inline">Tableau de bord</span>
+                            </h1>
                         </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="hidden lg:flex flex-wrap gap-2">
                         <button
                             onClick={togglePush}
                             disabled={pushState === 'loading'}
@@ -443,18 +456,18 @@ export default function AdminPage() {
                 </div>
 
                 {/* Statistiques : trois tickets */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <div className={`grid grid-cols-3 gap-2 sm:gap-4 mb-6 lg:mb-8 ${tab === 'planning' ? '' : 'hidden lg:grid'}`}>
                     {[
                         { icon: CalendarCheck, label: 'Réservations à venir', value: bookedUpcoming.length },
                         { icon: CalendarPlus, label: 'Créneaux libres', value: freeUpcoming.length },
                         { icon: Sun, label: "Clients aujourd'hui", value: bookedToday.length },
                     ].map(({ icon: Icon, label, value }, i) => (
                         <Reveal key={label} delay={i * 90}>
-                            <div className="notched bg-navy text-paper px-6 py-5 flex items-center gap-4">
-                                <Icon size={22} className="text-gold shrink-0" />
+                            <div className="notched bg-navy text-paper h-full px-4 py-3 sm:px-6 sm:py-5 flex items-center gap-4">
+                                <Icon size={22} className="hidden sm:block text-gold shrink-0" />
                                 <div>
-                                    <p className="font-slab text-4xl tabular-nums leading-none">{loading && slots.length === 0 ? '–' : value}</p>
-                                    <p className="text-sm mt-1">{label}</p>
+                                    <p className="font-slab text-3xl sm:text-4xl tabular-nums leading-none">{loading && slots.length === 0 ? '–' : value}</p>
+                                    <p className="text-[11px] leading-tight sm:text-sm mt-1">{label}</p>
                                 </div>
                             </div>
                         </Reveal>
@@ -462,9 +475,9 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid lg:grid-cols-[1fr_1.15fr] gap-8 items-start">
-                    <div className="space-y-8 lg:sticky lg:top-24">
+                    <div className="space-y-6 lg:space-y-8 lg:sticky lg:top-24">
                         {/* Prochain client : un ticket de passage */}
-                        <Reveal>
+                        <Reveal className={onTab('planning')}>
                             <section className="notched bg-ticket px-6 py-6 shadow-[0_12px_30px_-14px_rgba(28,43,74,.45)]">
                                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-red">Prochain client</p>
                                 {nextBooking ? (
@@ -504,12 +517,12 @@ export default function AdminPage() {
                         </Reveal>
 
                         {/* Ajouter des créneaux */}
-                        <Reveal delay={100}>
+                        <Reveal delay={100} className={onTab('ouvrir')}>
                             <section className="card-hard p-6">
-                                <h2 className="font-slab text-2xl flex items-center gap-2">
+                                <h2 className="hidden lg:flex font-slab text-2xl items-center gap-2">
                                     <Plus size={22} className="text-red" /> Ouvrir des créneaux
                                 </h2>
-                                <p className="text-sm mt-1">Choisis un jour, puis toutes les heures à ouvrir.</p>
+                                <p className="text-sm lg:mt-1">Choisis un jour, puis toutes les heures à ouvrir.</p>
 
                                 <div className="mt-5">
                                     <DayStepper
@@ -588,7 +601,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Planning */}
-                    <Reveal delay={150}>
+                    <Reveal delay={150} className={onTab('planning')}>
                         <section className="card-hard overflow-hidden">
                             <div className="p-5 sm:p-6 border-b-2 border-navy space-y-4">
                                 <DayStepper
@@ -710,7 +723,55 @@ export default function AdminPage() {
                         </section>
                     </Reveal>
                 </div>
+
+                {/* Téléphone : réglages regroupés dans leur onglet */}
+                {tab === 'reglages' && (
+                    <section className="lg:hidden anim-pop space-y-3">
+                        <button
+                            onClick={togglePush}
+                            disabled={pushState === 'loading'}
+                            className="card-hard press w-full flex items-center gap-3 px-5 py-4 font-bold text-left"
+                        >
+                            {pushState === 'loading' ? <Loader2 size={20} className="animate-spin text-red" />
+                                : pushState === 'on' ? <BellRing size={20} className="text-ok" /> : <Bell size={20} className="text-red" />}
+                            <span className="flex-1">
+                                {pushState === 'on' ? 'Notifications activées' : 'Activer les notifications'}
+                                <span className="block text-sm font-normal">Être prévenu à chaque nouvelle réservation</span>
+                            </span>
+                        </button>
+                        <button onClick={fetchSlots} className="card-hard press w-full flex items-center gap-3 px-5 py-4 font-bold">
+                            <RefreshCw size={20} className={`text-red ${loading ? 'animate-spin' : ''}`} /> Actualiser le planning
+                        </button>
+                        <a href="/" target="_blank" className="card-hard press w-full flex items-center gap-3 px-5 py-4 font-bold">
+                            <ExternalLink size={20} className="text-red" /> Voir le site client
+                        </a>
+                        <button onClick={handleLogout} className="card-hard press w-full flex items-center gap-3 px-5 py-4 font-bold">
+                            <LogOut size={20} className="text-red" /> {demo ? 'Quitter la démo' : 'Déconnexion'}
+                        </button>
+                    </section>
+                )}
             </main>
+
+            {/* Téléphone : barre d'onglets en bas, à portée de pouce */}
+            <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 safe-bottom bg-navy border-t-2 border-red">
+                <div className="max-w-md mx-auto grid grid-cols-3">
+                    {([
+                        ['planning', 'Planning', CalendarDays],
+                        ['ouvrir', 'Ouvrir', Plus],
+                        ['reglages', 'Réglages', Settings],
+                    ] as const).map(([key, label, Icon]) => (
+                        <button
+                            key={key}
+                            onClick={() => { setTab(key); window.scrollTo({ top: 0 }); }}
+                            aria-current={tab === key ? 'page' : undefined}
+                            className={`flex flex-col items-center gap-1 py-2.5 text-xs font-bold transition-colors ${tab === key ? 'text-gold' : 'text-paper/70'}`}
+                        >
+                            <Icon size={22} />
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            </nav>
             {toasts}
         </div>
     );

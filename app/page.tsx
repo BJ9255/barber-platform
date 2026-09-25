@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { addDays, addWeeks, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Ticket } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Sparkles, Ticket } from 'lucide-react';
 import { BarberPole, Logo, Reveal, SERVICES, SHOP_NAME, useToasts } from './components/ui';
 import { warp } from './components/TicketRain';
+import { generateClientDemoSlots } from './admin/demo';
 import {
   InstallButton, useInstallMode, getPushSubscription, pushErrorMessage, saveBooking, updateSavedBooking, type PushError,
 } from './components/pwa';
@@ -50,6 +51,9 @@ export default function BookingPage() {
   const [booked, setBooked] = useState<{ slot: Slot; name: string; token: string } | null>(null);
   const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
 
+  // Mode démo (/?demo) : créneaux fictifs, réservation simulée, aucune requête au serveur
+  const [demo, setDemo] = useState(false);
+
   const { notify, toasts } = useToasts();
 
   // Créneaux des prochaines semaines (l'API les renvoie semaine par semaine, sans donnée client)
@@ -69,7 +73,14 @@ export default function BookingPage() {
     }
   }, [notify]);
 
-  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('demo')) {
+      setDemo(true);
+      setSlots(generateClientDemoSlots());
+      return;
+    }
+    fetchSlots();
+  }, [fetchSlots]);
 
   const today = startOfDay(new Date());
   const days = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i));
@@ -96,6 +107,20 @@ export default function BookingPage() {
 
     setSubmitting(true);
     setFormError('');
+    if (demo) {
+      // Démo : le créneau passe simplement à « pris » dans la page, rien n'est enregistré
+      await new Promise(r => setTimeout(r, 600));
+      setSlots(prev => prev?.map(s => (s.id === slot.id ? { ...s, isBooked: true } : s)));
+      setBooked({ slot, name: clientName.trim(), token: 'demo' });
+      setReminder('idle');
+      setClientName('');
+      setClientPhone('');
+      setClientEmail('');
+      setSlot(null);
+      setSubmitting(false);
+      goTo('done', 1.6);
+      return;
+    }
     try {
       const res = await fetch('/api/book', {
         method: 'POST',
@@ -135,6 +160,7 @@ export default function BookingPage() {
   // Rappel par notification le jour du RDV
   const enableReminder = async () => {
     if (!booked) return;
+    if (demo) return notify('Les rappels ne sont pas disponibles en démo', 'error');
     setReminder('loading');
     try {
       const subscription = await getPushSubscription();
@@ -176,6 +202,16 @@ export default function BookingPage() {
         </div>
       </header>
 
+      {demo && (
+        <div className="bg-gold text-navy text-sm font-bold">
+          <div className="max-w-md lg:max-w-none mx-auto px-4 py-2 flex items-center justify-center gap-2 text-center">
+            <Sparkles size={15} className="shrink-0" />
+            <span>Démo client : créneaux fictifs, rien n&apos;est enregistré.</span>
+            <Link href="/demo" className="underline underline-offset-2 shrink-0">Changer</Link>
+          </div>
+        </div>
+      )}
+
       {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement */}
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <aside className="hidden lg:flex lg:flex-col lg:justify-center lg:sticky lg:top-0 lg:h-dvh lg:px-14 xl:px-20 lg:py-12 bg-navy">
@@ -193,6 +229,7 @@ export default function BookingPage() {
             <nav className="mt-10 flex flex-wrap items-center gap-6 text-sm">
               <Link href="/mes-rdv" className="underline underline-offset-4 hover:text-gold transition">Mes RDV</Link>
               <Link href="/admin" className="underline underline-offset-4 hover:text-gold transition">Espace coiffeur</Link>
+              <Link href="/demo" className="underline underline-offset-4 hover:text-gold transition">Démo</Link>
               <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 border-2 border-paper font-bold hover:bg-paper hover:text-navy" />
             </nav>
           </div>
@@ -350,10 +387,11 @@ export default function BookingPage() {
 
                 <div className="grid grid-cols-2 gap-3 mt-8">
                   <a
-                    href={`/api/calendar/${booked.slot.id}`}
+                    href={demo ? undefined : `/api/calendar/${booked.slot.id}`}
+                    onClick={demo ? () => notify("L'ajout au calendrier n'est pas disponible en démo", 'error') : undefined}
                     target="_blank"
                     rel="noopener"
-                    className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
+                    className="card-hard press flex items-center justify-center gap-2 py-3 font-bold cursor-pointer"
                   >
                     <CalendarPlus size={18} className="text-red" /> Calendrier
                   </a>
@@ -395,7 +433,8 @@ export default function BookingPage() {
           <span className="font-slab text-lg">{SHOP_NAME}</span>
           <span className="flex gap-4">
             <Link href="/mes-rdv" className="underline underline-offset-4 py-2">Mes RDV</Link>
-            <Link href="/admin" className="underline underline-offset-4 py-2">Espace coiffeur</Link>
+            <Link href="/admin" className="underline underline-offset-4 py-2">Coiffeur</Link>
+            <Link href="/demo" className="underline underline-offset-4 py-2">Démo</Link>
           </span>
         </div>
       </footer>

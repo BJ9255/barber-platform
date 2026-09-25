@@ -61,3 +61,8 @@ export function generateDemoSlots(): DemoSlot[] {
 
     return slots;
 }
+
+// Même planning fictif, vu par un client (/?demo) : seulement l'heure et libre / pris
+export function generateClientDemoSlots() {
+    return generateDemoSlots().map(({ id, startTime, isBooked }) => ({ id, startTime, isBooked }));
+}
