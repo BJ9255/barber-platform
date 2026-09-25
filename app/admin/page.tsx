@@ -417,9 +417,9 @@ export default function AdminPage() {
             <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
                 <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
                     <div className="anim-swing flex items-center gap-4">
-                        <BarberPole />
+                        <BarberPole light />
                         <div>
-                            <p className="text-sm font-bold uppercase tracking-[0.25em] text-red">
+                            <p className="text-sm font-bold uppercase tracking-[0.25em] text-gold">
                                 {format(now, 'EEEE d MMMM', { locale: fr })}
                             </p>
                             <h1 className="font-slab text-4xl sm:text-5xl leading-none mt-1">Tableau de bord</h1>

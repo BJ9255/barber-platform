@@ -8,7 +8,8 @@
 
 /* Direction artistique « Ticket rétro » : enseigne de barbier à l'ancienne */
 @theme {
-  --color-paper: #efe3cc;     /* fond crème */
+  --color-night: #0e1526;     /* fond de page sombre, sous la pluie de tickets */
+  --color-paper: #efe3cc;     /* crème : texte sur fond sombre, cartes */
   --color-paper-2: #f7eedd;   /* cartes, champs */
   --color-ticket: #fffaf0;    /* papier du ticket */
   --color-navy: #1c2b4a;      /* encre principale */
@@ -54,8 +55,9 @@ html {
 body {
   /* Pas de flash gris sur iPhone / Android quand on touche un bouton */
   -webkit-tap-highlight-color: transparent;
-  background: var(--color-paper);
-  color: var(--color-navy);
+  /* Fond sombre : une lueur bleu marine en haut, qui s'éteint vers le bas */
+  background: var(--color-night) radial-gradient(ellipse 120% 70% at 50% 0%, #22335a 0%, transparent 70%) fixed;
+  color: var(--color-paper);
   font-family: var(--font-type), "Courier New", monospace;
 }
 
@@ -69,6 +71,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* ---------- Éléments du ticket ---------- */
+
+/* Le texte de la page est crème ; tout ce qui est posé sur du papier repasse à l'encre bleu marine.
+   Dans la couche « components » : une couleur de texte explicite (text-red…) garde la priorité. */
+@layer components {
+  .card-hard, .bg-ticket, .bg-paper, .bg-paper-2 { color: var(--color-navy); }
+}
 
 /* Bord « prédécoupé » : encoches rondes sur les côtés */
 .notched {
@@ -92,7 +100,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .card-hard {
   background: var(--color-paper-2);
   border: 2px solid var(--color-navy);
-  box-shadow: 4px 4px 0 var(--color-navy);
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 0.45);
 }
 
 /* Bouton qu'on enfonce : l'ombre dure s'écrase sous le doigt */

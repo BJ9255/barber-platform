@@ -207,7 +207,7 @@ export default function BookingPage() {
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <header
           ref={signRef}
-          className="safe-top relative px-5 pb-4 text-center bg-navy text-paper border-b-4 border-red lg:border-b-0 lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
+          className="safe-top relative px-5 pb-4 text-center bg-navy/80 border-b-4 border-red lg:bg-navy lg:border-b-0 lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
         >
           {/* Téléphone : raccourcis au-dessus de l'enseigne */}
           <nav className="lg:hidden flex items-center justify-end gap-1 pt-1 -mr-2 max-w-md mx-auto text-sm">
@@ -240,17 +240,17 @@ export default function BookingPage() {
           </div>
         </header>
 
-        <div className="px-5 pt-6 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
-          <main className="max-w-md mx-auto lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:border-2 lg:border-navy lg:bg-paper-2 lg:shadow-[8px_8px_0_#1c2b4a]">
+        <div className="px-4 pt-6 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
+          <main className="max-w-md mx-auto lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:border-2 lg:border-navy lg:bg-paper-2 lg:text-navy lg:shadow-[8px_8px_0_rgba(0,0,0,.45)]">
             {/* Suivi du parcours : les 3 étapes sont nommées, l'étape en cours est en rouge */}
             <ol className="grid grid-cols-3 gap-1.5 text-xs font-bold uppercase tracking-[0.12em]">
               {TRACKER.map((label, i) => {
                 const current = trackerIndex(step);
                 const state = i < current ? 'done' : i === current ? 'now' : 'todo';
                 return (
-                  <li key={label} className={state === 'todo' ? 'text-muted' : state === 'now' ? 'text-red' : ''}>
-                    <span className="h-1.5 block overflow-hidden bg-line">
-                      <span className={`block h-full transition-transform duration-500 origin-left ${state === 'done' ? 'bg-navy' : 'bg-red'}`} style={{ transform: `scaleX(${state === 'todo' ? 0 : 1})` }} />
+                  <li key={label} className={state === 'todo' ? 'opacity-55' : state === 'now' ? 'text-gold lg:text-red' : ''}>
+                    <span className="h-1.5 block overflow-hidden bg-paper/20 lg:bg-line">
+                      <span className={`block h-full transition-transform duration-500 origin-left ${state === 'done' ? 'bg-paper lg:bg-navy' : 'bg-red'}`} style={{ transform: `scaleX(${state === 'todo' ? 0 : 1})` }} />
                     </span>
                     <span className="flex items-center gap-1 mt-2">
                       {state === 'done' ? <Check size={13} className="shrink-0" /> : <span className="tabular-nums">{i + 1}.</span>}
@@ -378,7 +378,7 @@ export default function BookingPage() {
                           key={s.id}
                           disabled={!free || tearing !== null}
                           onClick={() => pickTicket(s)}
-                          className={`notched py-3 text-center bg-navy text-paper disabled:cursor-default ${tearing === s.id ? 'anim-tear' : 'anim-dispense'} ${free ? '' : 'opacity-30'}`}
+                          className={`notched py-3 text-center bg-ticket lg:bg-navy lg:text-paper disabled:cursor-default ${tearing === s.id ? 'anim-tear' : 'anim-dispense'} ${free ? '' : 'opacity-30'}`}
                           style={{ animationDelay: tearing === s.id ? '0ms' : `${120 + i * 70}ms` }}
                         >
                           <span className="block text-[10px] uppercase tracking-[0.3em]">{free ? 'N°' : s.isBooked ? 'Pris' : 'Passé'}</span>
@@ -392,8 +392,8 @@ export default function BookingPage() {
 
               {step === 2 && slot && (
                 <form onSubmit={handleBook} className="mt-2 space-y-5">
-                  <p className="notched px-5 py-3 bg-navy text-paper font-bold first-letter:uppercase">
-                    <Ticket size={16} className="inline -mt-1 mr-2 text-gold" />
+                  <p className="notched px-5 py-3 bg-ticket font-bold first-letter:uppercase lg:bg-navy lg:text-paper">
+                    <Ticket size={16} className="inline -mt-1 mr-2 text-red lg:text-gold" />
                     {format(new Date(slot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
                   </p>
                   <Reveal>
@@ -474,7 +474,7 @@ export default function BookingPage() {
                     </button>
                   </div>
                   <p className="text-center text-sm mt-6">
-                    Retrouve ou annule ton ticket dans <Link href="/mes-rdv" className="font-bold underline underline-offset-4 text-red">Mes RDV</Link>
+                    Retrouve ou annule ton ticket dans <Link href="/mes-rdv" className="font-bold underline underline-offset-4 text-gold lg:text-red">Mes RDV</Link>
                   </p>
                   <button onClick={restart} className="w-full mt-3 py-3 underline underline-offset-4 hover:text-red">
                     Réserver un autre créneau
@@ -518,7 +518,7 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
       <span className="text-sm font-bold uppercase tracking-[0.15em]">
         {label}
         {required && <span className="text-red"> *</span>}
-        {hint && <span className="normal-case tracking-normal font-normal text-muted"> ({hint})</span>}
+        {hint && <span className="normal-case tracking-normal font-normal opacity-70"> ({hint})</span>}
       </span>
       {children}
     </label>
@@ -532,15 +532,15 @@ function HowItWorks({ onDark = false, plain = false }: { onDark?: boolean; plain
     return (
       <>
         <Reveal><h2 className="font-slab text-2xl">Comment ça se passe</h2></Reveal>
-        <ol className="mt-3 divide-y-2 divide-dashed divide-navy/15">
+        <ol className="mt-3 divide-y-2 divide-dashed divide-paper/15">
           {HOW_IT_WORKS.map(([title, text], i) => (
             <li key={title}>
               <Reveal delay={i * 100}>
                 <div className="flex gap-4 items-start py-4">
-                  <span className="font-slab text-3xl leading-none text-red w-6">{i + 1}</span>
+                  <span className="font-slab text-3xl leading-none text-gold w-6">{i + 1}</span>
                   <span>
                     <span className="block font-bold">{title}</span>
-                    <span className="block text-sm text-muted mt-0.5">{text}</span>
+                    <span className="block text-sm opacity-70 mt-0.5">{text}</span>
                   </span>
                 </div>
               </Reveal>

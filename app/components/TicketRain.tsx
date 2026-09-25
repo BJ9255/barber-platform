@@ -17,12 +17,13 @@ const TICKET_H = 30;
 const FALL_SPEED = 0.035;  // px par milliseconde au premier plan
 const LABELS = ['COUPE', 'BARBE', 'DÉGRADÉ', 'ENTRÉE', 'TICKET'];
 
-// Trois modèles de ticket, aux couleurs du thème
+// Modèles de ticket aux couleurs du thème, choisis pour ressortir sur le fond sombre
 const STYLES = [
     { bg: PAPER, ink: NAVY, stub: RED, stubInk: PAPER },
     { bg: PAPER, ink: NAVY, stub: RED, stubInk: PAPER },
-    { bg: NAVY, ink: PAPER, stub: GOLD, stubInk: NAVY },
+    { bg: PAPER, ink: NAVY, stub: GOLD, stubInk: NAVY },
     { bg: RED, ink: PAPER, stub: PAPER, stubInk: RED },
+    { bg: GOLD, ink: NAVY, stub: NAVY, stubInk: GOLD },
 ];
 
 type Ticket = {
@@ -93,7 +94,7 @@ function makeSprite(style: typeof STYLES[number], label: string, num: number, fo
     return c;
 }
 
-// Fond animé : des tickets de barbier qui tombent en virevoltant sur le papier crème
+// Fond animé : des tickets de barbier qui tombent en virevoltant dans la nuit
 export default function TicketRain() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -152,7 +153,7 @@ export default function TicketRain() {
                 ticketsWidth = width;
                 buildSprites();
                 small = width < 640;
-                const count = small ? 7 : Math.max(18, Math.min(46, Math.round((width * height) / 26000)));
+                const count = small ? 16 : Math.max(18, Math.min(46, Math.round((width * height) / 26000)));
                 tickets = Array.from({ length: count }, () => spawn({} as Ticket, true));
             }
         };
@@ -192,13 +193,13 @@ export default function TicketRain() {
                 const turn = Math.cos(t.flip); // le ticket vu de face (1) puis par la tranche (0)
 
                 ctx.save();
-                ctx.globalAlpha = small ? 0.08 + s * s * 0.2 : 0.18 + s * s * 0.5;
+                ctx.globalAlpha = small ? 0.25 + s * s * 0.5 : 0.3 + s * s * 0.6;
                 ctx.translate(x, y);
                 ctx.rotate(t.angle + Math.sin(t.sway) * 0.35);
                 ctx.scale(s, s * Math.max(0.08, Math.abs(turn)));
                 // Ombre dure décalée, comme les cartes du site
                 ctx.globalAlpha *= 0.35;
-                ctx.fillStyle = NAVY;
+                ctx.fillStyle = '#000';
                 ctx.fillRect(-TICKET_W / 2 + 3, -TICKET_H / 2 + 3, TICKET_W, TICKET_H);
                 ctx.globalAlpha /= 0.35;
                 ctx.drawImage(sprites[t.sprite], -TICKET_W / 2, -TICKET_H / 2, TICKET_W, TICKET_H);

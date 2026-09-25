@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#efe3cc",
+  themeColor: "#0e1526",
   // Le contenu passe sous l'encoche et la barre d'accueil : les marges sont gérées avec env(safe-area-inset-*)
   viewportFit: "cover",
 };

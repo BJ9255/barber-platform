@@ -149,9 +149,9 @@ export default function MyBookingsPage() {
 
             <main className="max-w-xl mx-auto px-5 py-10 pb-24">
                 <div className="anim-swing flex items-center gap-4">
-                    <BarberPole />
+                    <BarberPole light />
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-red">Sans compte</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-gold">Sans compte</p>
                         <h1 className="font-slab text-[32px] sm:text-5xl leading-none mt-1 whitespace-nowrap">Mes rendez-vous</h1>
                         <p className="text-sm mt-2 flex items-center gap-2"><Smartphone size={15} className="shrink-0" /> Tes tickets sont gardés sur ce téléphone.</p>
                     </div>
