@@ -1,16 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  format, startOfWeek, endOfWeek, addDays, isSameDay, addWeeks, subWeeks, isToday, isBefore, startOfDay,
-} from 'date-fns';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { addDays, addWeeks, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import {
-  ChevronLeft, ChevronRight, Loader2, ArrowRight, CalendarDays, Clock, UserRound, Phone, Mail, X, Scissors, Lock,
-  CalendarPlus, Bell, BellRing, Ticket,
-} from 'lucide-react';
-import { Logo, SHOP_NAME, useToasts } from './components/ui';
+import { ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Lock, Ticket } from 'lucide-react';
+import { BarberPole, Reveal, SERVICES, SHOP_NAME, useToasts } from './components/ui';
 import { warp } from './components/Starfield';
 import {
   InstallButton, getPushSubscription, pushErrorMessage, saveBooking, updateSavedBooking, type PushError,
@@ -22,127 +17,105 @@ type Slot = {
   isBooked: boolean;
 };
 
-const isPast = (slot: Slot) => new Date(slot.startTime) <= new Date();
-const isFree = (slot: Slot) => !slot.isBooked && !isPast(slot);
+// Jours proposés à la réservation
+const DAYS_AHEAD = 14;
+
+const isFree = (slot: Slot) => !slot.isBooked && new Date(slot.startTime) > new Date();
 const toDateParam = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dayWord = (d: Date) => (isToday(d) ? "Aujourd'hui" : isTomorrow(d) ? 'Demain' : format(d, 'EEEE', { locale: fr }));
+
+const STEP_TITLES = ['Quel jour ?', 'À quelle heure ?', 'À quel nom ?'];
+const HOW_IT_WORKS = [
+  ['Choisis ton jour', 'Les jours avec des places libres sont indiqués.'],
+  ['Prends ton ticket', 'Un appui sur une heure et elle est à toi.'],
+  ['Viens te faire couper', 'Ta réservation est confirmée tout de suite.'],
+];
 
 export default function BookingPage() {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [upcoming, setUpcoming] = useState<Slot[] | undefined>(undefined);
+  const [slots, setSlots] = useState<Slot[] | undefined>(undefined);
+  const [step, setStep] = useState(0);
+  const [dir, setDir] = useState<1 | -1>(1);
+  const [day, setDay] = useState<Date | null>(null);
+  const [slot, setSlot] = useState<Slot | null>(null);
+  const [tearing, setTearing] = useState<string | null>(null);
 
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-  const [bookedSlot, setBookedSlot] = useState<Slot | null>(null);
-  const [bookedToken, setBookedToken] = useState<string | null>(null);
-  const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const pendingJump = useRef<Slot | null>(null);
+  const [booked, setBooked] = useState<{ slot: Slot; name: string; token: string } | null>(null);
+  const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
+
+  const [compact, setCompact] = useState(false);
+  const signRef = useRef<HTMLElement>(null);
   const { notify, toasts } = useToasts();
 
-  // Prochains créneaux libres, affichés dans la carte « Disponibles » du haut de page
-  const fetchUpcoming = useCallback(async () => {
-    try {
-      const res = await fetch('/api/slots?scope=upcoming', { cache: 'no-store' });
-      setUpcoming(res.ok ? await res.json() : []);
-    } catch {
-      setUpcoming([]);
-    }
-  }, []);
-  const nextSlot = upcoming?.[0] ?? null;
-
+  // Créneaux des prochaines semaines (l'API les renvoie semaine par semaine, sans donnée client)
   const fetchSlots = useCallback(async () => {
-    setLoading(true);
     try {
-      const res = await fetch(`/api/slots?date=${toDateParam(weekStart)}`, { cache: 'no-store' });
-      const data: Slot[] = res.ok ? await res.json() : [];
-      setSlots(data);
-
-      // Choix du jour affiché : saut demandé > jour déjà choisi > premier jour avec des dispos > aujourd'hui
-      const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-      const jump = pendingJump.current;
-      pendingJump.current = null;
-      setSelectedDay(prev => {
-        if (jump) return startOfDay(new Date(jump.startTime));
-        if (prev && days.some(d => isSameDay(d, prev))) return prev;
-        const firstFree = days.find(d => data.some(s => isFree(s) && isSameDay(new Date(s.startTime), d)));
-        return firstFree ?? days.find(d => isToday(d)) ?? days[0];
-      });
-      if (jump) {
-        const fresh = data.find(s => s.id === jump.id);
-        if (fresh && isFree(fresh)) setSelectedSlot(fresh);
-      }
+      const weeks = [new Date(), addWeeks(new Date(), 1), addWeeks(new Date(), 2)];
+      const results = await Promise.all(weeks.map(async w => {
+        const res = await fetch(`/api/slots?date=${toDateParam(w)}`, { cache: 'no-store' });
+        return res.ok ? ((await res.json()) as Slot[]) : [];
+      }));
+      const unique = new Map(results.flat().map(s => [s.id, s]));
+      setSlots([...unique.values()].sort((a, b) => a.startTime.localeCompare(b.startTime)));
     } catch (error) {
       console.error('Failed to fetch slots', error);
       notify('Impossible de charger les créneaux', 'error');
-    } finally {
-      setLoading(false);
+      setSlots([]);
     }
-  }, [weekStart, notify]);
+  }, [notify]);
 
   useEffect(() => { fetchSlots(); }, [fetchSlots]);
-  useEffect(() => { fetchUpcoming(); }, [fetchUpcoming]);
 
-  // Fermer la fenêtre avec Échap
+  // Petite barre collée en haut quand l'enseigne sort de l'écran (téléphone)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeSheet();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+    const el = signRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setCompact(!entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
-  const jumpToSlot = (slot: Slot) => {
-    const target = startOfWeek(new Date(slot.startTime), { weekStartsOn: 1 });
-    document.getElementById('reserver')?.scrollIntoView();
-    if (isSameDay(target, weekStart)) {
-      setSelectedDay(startOfDay(new Date(slot.startTime)));
-      setSelectedSlot(slot);
-    } else {
-      pendingJump.current = slot;
-      setWeekStart(target);
-    }
+  const today = startOfDay(new Date());
+  const days = Array.from({ length: DAYS_AHEAD }, (_, i) => addDays(today, i))
+    .filter(d => slots?.some(s => isSameDay(new Date(s.startTime), d)));
+  const freeOn = (d: Date) => slots?.filter(s => isFree(s) && isSameDay(new Date(s.startTime), d)).length ?? 0;
+  const nextFree = slots?.find(isFree) ?? null;
+
+  const goTo = (next: number, strength = 0.5) => {
+    setDir(next > step ? 1 : -1);
+    setStep(next);
+    warp(strength);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const closeSheet = () => {
-    if (submitting) return;
-    setSelectedSlot(null);
-    setBookedSlot(null);
-    setBookedToken(null);
-    setReminder('idle');
+  // Le ticket choisi se détache avant de passer au formulaire
+  const pickTicket = (s: Slot) => {
+    setTearing(s.id);
+    setTimeout(() => {
+      setSlot(s);
+      setTearing(null);
+      setFormError('');
+      goTo(2);
+    }, 420);
+  };
+
+  const jumpToNext = () => {
+    if (!nextFree) return;
+    setDay(startOfDay(new Date(nextFree.startTime)));
+    setSlot(nextFree);
     setFormError('');
+    goTo(2);
   };
 
-  // Rappel par notification le jour du RDV
-  const enableReminder = async () => {
-    if (!bookedToken) return;
-    setReminder('loading');
-    try {
-      const subscription = await getPushSubscription();
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription, token: bookedToken }),
-      });
-      if (!res.ok) throw new Error();
-      updateSavedBooking(bookedToken, { reminder: true });
-      setReminder('on');
-    } catch (error) {
-      setReminder('idle');
-      notify(pushErrorMessage[error as PushError] ?? "Impossible d'activer le rappel", 'error');
-    }
-  };
-
-  const handleBookSlot = async (e: React.FormEvent) => {
+  const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSlot || !clientName.trim() || !clientPhone.trim()) return;
+    if (!slot || !clientName.trim() || !clientPhone.trim()) return;
 
     setSubmitting(true);
     setFormError('');
@@ -150,31 +123,28 @@ export default function BookingPage() {
       const res = await fetch('/api/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotId: selectedSlot.id, clientName, clientPhone, clientEmail }),
+        body: JSON.stringify({ slotId: slot.id, clientName, clientPhone, clientEmail }),
       });
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        const { token } = await res.json();
         // Le code secret reste sur ce téléphone : il sert à retrouver et annuler le RDV
-        saveBooking({ token, slotId: selectedSlot.id, startTime: selectedSlot.startTime });
-        warp(1.2);
-        setBookedToken(token);
-        setBookedSlot(selectedSlot);
+        saveBooking({ token: data.token, slotId: slot.id, startTime: slot.startTime });
+        setBooked({ slot, name: clientName.trim(), token: data.token });
+        setReminder('idle');
         setClientName('');
         setClientPhone('');
         setClientEmail('');
+        goTo(3, 1.6);
         fetchSlots();
-        fetchUpcoming();
+      } else if (res.status === 409) {
+        // Quelqu'un a été plus rapide : retour au choix de l'heure, avec les créneaux à jour
+        notify(data.error || 'Ce créneau vient d’être réservé', 'error');
+        setSlot(null);
+        fetchSlots();
+        goTo(1);
       } else {
-        const err = await res.json();
-        if (res.status === 409) {
-          setSelectedSlot(null);
-          notify(err.error, 'error');
-          fetchSlots();
-          fetchUpcoming();
-        } else {
-          setFormError(err.error || 'Une erreur est survenue');
-        }
+        setFormError(data.error || 'Une erreur est survenue');
       }
     } catch (error) {
       console.error('Booking failed', error);
@@ -184,462 +154,337 @@ export default function BookingPage() {
     }
   };
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const isCurrentWeek = isSameDay(weekStart, startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const daySlots = selectedDay
-    ? slots.filter(s => isSameDay(new Date(s.startTime), selectedDay))
-    : [];
-  const freeCount = (day: Date) =>
-    slots.filter(s => isFree(s) && isSameDay(new Date(s.startTime), day)).length;
-  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-  const sheetOpen = !!(selectedSlot || bookedSlot);
+  // Rappel par notification le jour du RDV
+  const enableReminder = async () => {
+    if (!booked) return;
+    setReminder('loading');
+    try {
+      const subscription = await getPushSubscription();
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription, token: booked.token }),
+      });
+      if (!res.ok) throw new Error();
+      updateSavedBooking(booked.token, { reminder: true });
+      setReminder('on');
+    } catch (error) {
+      setReminder('idle');
+      notify(pushErrorMessage[error as PushError] ?? "Impossible d'activer le rappel", 'error');
+    }
+  };
+
+  const restart = () => {
+    setBooked(null);
+    setSlot(null);
+    setDay(null);
+    goTo(0);
+  };
+
+  const enter = dir === 1 ? 'anim-from-right' : 'anim-from-left';
+  const daySlots = day ? (slots ?? []).filter(s => isSameDay(new Date(s.startTime), day)) : [];
 
   return (
-    <div className="min-h-dvh bg-atmosphere overflow-x-clip">
-      {/* Navigation */}
-      <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Logo />
-          <nav className="flex items-center gap-1 sm:gap-2">
-            <InstallButton className="flex items-center gap-2 text-sm rounded-full border border-brass/40 text-brass-light px-3 py-1.5 hover:bg-brass/10 transition" />
-            <Link
-              href="/mes-rdv"
-              aria-label="Mes rendez-vous"
-              className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
-            >
-              <Ticket size={15} />
-              <span className="hidden sm:inline">Mes RDV</span>
-            </Link>
-            <Link
-              href="/admin"
-              aria-label="Espace coiffeur"
-              className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
-            >
-              <Lock size={14} />
-              <span className="hidden sm:inline">Espace coiffeur</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 pb-16 sm:pt-24 sm:pb-24 grid md:grid-cols-[1.2fr_1fr] gap-12 items-center">
-        <div>
-          <p className="animate-fade-up text-brass text-sm font-medium tracking-[0.2em] uppercase mb-5">
-            Coupe · Dégradé · Barbe
-          </p>
-          <h1
-            className="animate-rise font-display text-5xl sm:text-7xl leading-[1.02] tracking-tight"
-          >
-            La coupe,<br />
-            <em className="text-brass-light">sans l&apos;attente.</em>
-          </h1>
-          <p
-            className="animate-fade-up mt-6 text-lg text-muted max-w-md leading-relaxed"
-            style={{ animationDelay: '160ms' }}
-          >
-            Choisis ton créneau en quelques secondes. Confirmation immédiate, pas de compte à créer.
-          </p>
-          <div className="animate-fade-up mt-9 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
-            <a
-              href="#reserver"
-              onClick={() => warp(0.8)}
-              className="group inline-flex items-center gap-2 rounded-full bg-brass text-ink font-semibold px-7 py-3.5 hover:bg-brass-light transition-all hover:shadow-[0_0_40px_-8px_rgb(212_162_76/0.7)]"
-            >
-              Prendre rendez-vous
-              <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-            </a>
-          </div>
-        </div>
-
-        <UpcomingCard slots={upcoming} onPick={jumpToSlot} />
-      </section>
-
-      {/* Réservation */}
-      <section id="reserver" className="scroll-mt-20 max-w-4xl mx-auto px-4 sm:px-6 pb-24">
-        <div className="rounded-3xl border border-line bg-surface/45 shadow-2xl shadow-black/40 overflow-hidden">
-          <div className="p-5 sm:p-8 border-b border-line flex items-center justify-between gap-4">
-            <div>
-              <h2 className="font-display text-2xl sm:text-3xl">Réserver</h2>
-              <p className="text-muted text-sm mt-1 first-letter:uppercase">
-                {format(weekStart, 'd MMM', { locale: fr })} – {format(weekEnd, 'd MMM yyyy', { locale: fr })}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setWeekStart(subWeeks(weekStart, 1))}
-                disabled={isCurrentWeek}
-                aria-label="Semaine précédente"
-                className="size-10 grid place-items-center rounded-full border border-line hover:border-brass hover:text-brass transition disabled:opacity-30 disabled:pointer-events-none"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <button
-                onClick={() => setWeekStart(addWeeks(weekStart, 1))}
-                aria-label="Semaine suivante"
-                className="size-10 grid place-items-center rounded-full border border-line hover:border-brass hover:text-brass transition"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Jours de la semaine */}
-          <div className="px-3 sm:px-8 pt-6">
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
-              {weekDays.map(day => {
-                const count = freeCount(day);
-                const active = selectedDay && isSameDay(day, selectedDay);
-                const past = isBefore(day, startOfDay(new Date()));
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => setSelectedDay(day)}
-                    disabled={past}
-                    className={`relative flex flex-col items-center rounded-2xl py-3 sm:py-4 border transition-all duration-300 ${active
-                      ? 'bg-brass text-ink border-brass shadow-[0_8px_30px_-10px_rgb(212_162_76/0.8)] -translate-y-0.5'
-                      : 'border-line hover:border-brass/60 hover:-translate-y-0.5'
-                      } disabled:opacity-30 disabled:pointer-events-none`}
-                  >
-                    <span className={`text-[11px] sm:text-xs uppercase tracking-wider ${active ? 'text-ink/70' : 'text-muted'}`}>
-                      {format(day, 'EEE', { locale: fr }).replace('.', '')}
-                    </span>
-                    <span className="font-display text-xl sm:text-2xl mt-0.5">{format(day, 'd')}</span>
-                    <span
-                      className={`mt-1.5 h-1.5 w-1.5 rounded-full transition-colors ${loading ? 'bg-transparent' : count > 0
-                        ? active ? 'bg-ink' : 'bg-sage'
-                        : 'bg-transparent'
-                        }`}
-                    />
-                    {isToday(day) && !active && (
-                      <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 h-1 w-1 rounded-full bg-brass" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Créneaux du jour */}
-          <div className="p-5 sm:p-8 min-h-64">
-            {selectedDay && (
-              <p className="text-sm text-muted mb-4 first-letter:uppercase">
-                {format(selectedDay, 'EEEE d MMMM', { locale: fr })}
-                {!loading && (
-                  <span> · {freeCount(selectedDay)} créneau{freeCount(selectedDay) > 1 ? 'x' : ''} disponible{freeCount(selectedDay) > 1 ? 's' : ''}</span>
-                )}
-              </p>
-            )}
-
-            {loading ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="skeleton animate-shimmer h-14 rounded-xl" />
-                ))}
-              </div>
-            ) : daySlots.length === 0 ? (
-              <div className="animate-fade-in flex flex-col items-center justify-center text-center py-12">
-                <div className="size-14 rounded-full bg-surface-2 grid place-items-center mb-4">
-                  <Scissors size={22} className="text-muted" />
-                </div>
-                <p className="font-medium">Aucun créneau ce jour-là</p>
-                <p className="text-sm text-muted mt-1">
-                  {nextSlot ? 'Essaie un autre jour ou ' : 'De nouveaux créneaux arrivent bientôt.'}
-                  {nextSlot && (
-                    <button onClick={() => jumpToSlot(nextSlot)} className="text-brass hover:underline">
-                      le prochain disponible
-                    </button>
-                  )}
-                </p>
-              </div>
-            ) : (
-              <div key={selectedDay?.toISOString()} className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {daySlots.map((slot, i) => {
-                  const free = isFree(slot);
-                  return (
-                    <button
-                      key={slot.id}
-                      disabled={!free}
-                      onClick={() => setSelectedSlot(slot)}
-                      style={{ animationDelay: `${i * 35}ms` }}
-                      className={`animate-scale-in group relative h-14 rounded-xl border text-base font-medium tabular-nums transition-all duration-200 ${free
-                        ? 'border-line bg-surface-2 hover:border-brass hover:bg-brass hover:text-ink hover:-translate-y-0.5 hover:shadow-lg active:scale-95'
-                        : 'border-transparent bg-surface-2/40 text-muted/50 cursor-not-allowed'
-                        }`}
-                    >
-                      {format(new Date(slot.startTime), 'HH:mm')}
-                      {!free && (
-                        <span className="block text-[10px] uppercase tracking-wider -mt-0.5">
-                          {slot.isBooked ? 'Pris' : 'Passé'}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Comment ça marche */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-24">
-        <div className="grid sm:grid-cols-3 gap-4">
-          {[
-            { icon: CalendarDays, title: 'Choisis ton jour', text: 'Les jours avec des places libres sont marqués d’un point vert.' },
-            { icon: Clock, title: 'Choisis ton heure', text: 'Un clic sur un créneau et il est à toi pendant que tu remplis.' },
-            { icon: Scissors, title: 'Viens te faire couper', text: 'Ta réservation est confirmée tout de suite, rien à attendre.' },
-          ].map(({ icon: Icon, title, text }, i) => (
-            <div
-              key={title}
-              className="rounded-2xl border border-line bg-surface/35 p-6 hover:border-brass/50 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <span className="font-display text-brass text-lg">0{i + 1}</span>
-                <Icon size={18} className="text-muted" />
-              </div>
-              <h3 className="font-medium">{title}</h3>
-              <p className="text-sm text-muted mt-1.5 leading-relaxed">{text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <footer className="border-t border-line">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row gap-4 items-center justify-between text-sm text-muted">
-          <span>© {new Date().getFullYear()} {SHOP_NAME}</span>
-          <Link href="/admin" className="py-2 hover:text-cream transition-colors">Espace coiffeur</Link>
-        </div>
-      </footer>
-
-      {/* Fenêtre de réservation */}
-      {sheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-          <div className="animate-fade-in absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeSheet} />
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="safe-bottom animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain"
-          >
-            <button
-              onClick={closeSheet}
-              aria-label="Fermer"
-              className="absolute top-4 right-4 size-9 grid place-items-center rounded-full text-muted hover:text-cream hover:bg-surface-2 transition"
-            >
-              <X size={18} />
-            </button>
-
-            {bookedSlot ? (
-              <div className="p-8 pt-10 text-center">
-                <svg viewBox="0 0 52 52" className="size-20 mx-auto mb-5">
-                  <circle cx="26" cy="26" r="24" fill="rgb(143 194 141 / 0.12)" stroke="#8fc28d" strokeWidth="2" className="animate-scale-in" />
-                  <path
-                    d="M15 27l7 7 15-15"
-                    fill="none"
-                    stroke="#8fc28d"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray="48"
-                    className="animate-draw"
-                  />
-                </svg>
-                <h3 className="font-display text-3xl">C&apos;est réservé !</h3>
-                <p className="text-muted mt-3">On se voit</p>
-                <p className="text-lg font-medium mt-1 first-letter:uppercase">
-                  {format(new Date(bookedSlot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
-                </p>
-                <div className="mt-8 grid grid-cols-2 gap-2 text-sm">
-                  <a
-                    href={`/api/calendar/${bookedSlot.id}`}
-                    target="_blank"
-                    rel="noopener"
-                    className="flex items-center justify-center gap-2 rounded-xl border border-line py-3 hover:border-brass transition"
-                  >
-                    <CalendarPlus size={16} className="text-brass" /> Calendrier
-                  </a>
-                  <button
-                    onClick={enableReminder}
-                    disabled={reminder !== 'idle' || !bookedToken}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-line py-3 hover:border-brass transition disabled:hover:border-line"
-                  >
-                    {reminder === 'loading' ? <Loader2 size={16} className="animate-spin" />
-                      : reminder === 'on' ? <BellRing size={16} className="text-sage" />
-                        : <Bell size={16} className="text-brass" />}
-                    {reminder === 'on' ? 'Rappel activé' : 'Me rappeler'}
-                  </button>
-                </div>
-                <button
-                  onClick={closeSheet}
-                  className="mt-3 w-full rounded-full bg-brass text-ink font-semibold py-3.5 hover:bg-brass-light transition"
-                >
-                  Parfait
-                </button>
-                <Link href="/mes-rdv" className="mt-4 inline-block text-sm text-muted hover:text-cream transition">
-                  Retrouver ou annuler dans <span className="text-brass">Mes RDV</span>
-                </Link>
-              </div>
-            ) : selectedSlot && (
-              <form onSubmit={handleBookSlot} className="p-6 sm:p-8">
-                <p className="text-brass text-xs font-medium tracking-[0.2em] uppercase">Ta réservation</p>
-                <h3 className="font-display text-2xl mt-2 pr-8 first-letter:uppercase">
-                  {format(new Date(selectedSlot.startTime), 'EEEE d MMMM', { locale: fr })}
-                </h3>
-                <p className="flex items-center gap-2 text-muted mt-1">
-                  <Clock size={15} /> {format(new Date(selectedSlot.startTime), 'HH:mm')}
-                </p>
-
-                <div className="space-y-4 mt-7">
-                  <Field icon={UserRound} label="Prénom" required>
-                    <input
-                      type="text"
-                      value={clientName}
-                      onChange={e => setClientName(e.target.value)}
-                      placeholder="Thomas"
-                      autoComplete="given-name"
-                      maxLength={100}
-                      autoFocus={canAutoFocus}
-                      enterKeyHint="next"
-                      required
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field icon={Phone} label="Téléphone" required>
-                    <input
-                      type="tel"
-                      value={clientPhone}
-                      onChange={e => setClientPhone(e.target.value)}
-                      placeholder="06 12 34 56 78"
-                      autoComplete="tel"
-                      enterKeyHint="next"
-                      required
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field icon={Mail} label="Email" hint="facultatif">
-                    <input
-                      type="email"
-                      value={clientEmail}
-                      onChange={e => setClientEmail(e.target.value)}
-                      placeholder="thomas@mail.com"
-                      autoComplete="email"
-                      enterKeyHint="done"
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-
-                {formError && (
-                  <p key={formError} className="animate-shake mt-4 text-sm text-rust">{formError}</p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={!clientName.trim() || !clientPhone.trim() || submitting}
-                  className="mt-7 w-full rounded-full bg-brass text-ink font-semibold py-3.5 hover:bg-brass-light transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
-                  Confirmer la réservation
-                </button>
-              </form>
-            )}
+    <div className="min-h-dvh overflow-x-clip flex flex-col">
+      {compact && (
+        <div className="anim-bar safe-top lg:hidden fixed top-0 inset-x-0 z-40 bg-navy text-paper">
+          <div className="h-12 flex items-center justify-center gap-3">
+            <BarberPole size="sm" light />
+            <span className="font-slab text-lg">{SHOP_NAME}</span>
+            <BarberPole size="sm" light />
           </div>
         </div>
       )}
+
+      {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement */}
+      <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <header
+          ref={signRef}
+          className="safe-top relative px-5 pb-6 text-center max-w-md mx-auto lg:max-w-none lg:mx-0 lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12 lg:bg-navy lg:text-paper"
+        >
+          {/* Téléphone : raccourcis au-dessus de l'enseigne */}
+          <nav className="lg:hidden flex items-center justify-end gap-1 pt-3 -mr-2 text-sm">
+            <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 mr-1 border-2 border-navy bg-paper-2 font-bold shadow-[2px_2px_0_#1c2b4a]" />
+            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-3 py-2 min-h-10 font-bold hover:text-red transition">
+              <Ticket size={16} /> Mes RDV
+            </Link>
+            <Link href="/admin" aria-label="Espace coiffeur" className="grid place-items-center size-10 hover:text-red transition">
+              <Lock size={16} />
+            </Link>
+          </nav>
+
+          <div className="anim-swing flex items-center justify-center gap-4 lg:gap-8 mt-4 lg:mt-0">
+            <BarberPole size="lg" />
+            <div>
+              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-red lg:text-gold">Barbier · sur rendez-vous</p>
+              <h1 className="font-slab text-[42px] lg:text-[48px] xl:text-[62px] leading-none mt-1 lg:mt-3">{SHOP_NAME}</h1>
+              <p className="text-sm lg:text-lg mt-2 lg:mt-4">{SERVICES}</p>
+            </div>
+            <BarberPole size="lg" />
+          </div>
+
+          <div className="hidden lg:block mt-14 text-left">
+            <HowItWorks onDark />
+            <nav className="mt-10 flex flex-wrap items-center gap-6 text-sm">
+              <Link href="/mes-rdv" className="underline underline-offset-4 hover:text-gold transition">Mes RDV</Link>
+              <Link href="/admin" className="underline underline-offset-4 hover:text-gold transition">Espace coiffeur</Link>
+              <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 border-2 border-paper text-paper font-bold hover:bg-paper hover:text-navy" />
+            </nav>
+          </div>
+        </header>
+
+        <div className="lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
+          <main className="px-5 pb-16 max-w-md mx-auto lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:border-2 lg:border-navy lg:bg-paper-2 lg:shadow-[8px_8px_0_#1c2b4a]">
+            {step < 3 && (
+              <>
+                <div className="flex items-center justify-between text-sm min-h-6">
+                  {step > 0
+                    ? <button onClick={() => goTo(step - 1)} className="underline underline-offset-4 py-2 -my-2 hover:text-red">← Retour</button>
+                    : <span />}
+                  <span>Étape {step + 1} / 3</span>
+                </div>
+                <div className="flex gap-1.5 mt-3">
+                  {[0, 1, 2].map(i => (
+                    <span key={i} className="h-1.5 flex-1 overflow-hidden bg-line">
+                      <span className="block h-full bg-red transition-transform duration-500 origin-left" style={{ transform: `scaleX(${i <= step ? 1 : 0})` }} />
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* key = étape : l'écran est recréé, donc son animation d'entrée rejoue */}
+            <div key={step} className={enter}>
+              {step < 3 && <h2 className="font-slab text-4xl mt-6">{STEP_TITLES[step]}</h2>}
+
+              {step === 0 && (
+                <>
+                  {nextFree && (
+                    <button
+                      onClick={jumpToNext}
+                      className="notched press w-full mt-5 px-6 py-4 flex items-center justify-between gap-3 bg-navy text-paper text-left"
+                    >
+                      <span>
+                        <span className="block text-[11px] font-bold uppercase tracking-[0.25em] text-gold">Prochaine place libre</span>
+                        <span className="block font-slab text-2xl mt-0.5 first-letter:uppercase">
+                          {dayWord(new Date(nextFree.startTime))} · {format(new Date(nextFree.startTime), 'HH:mm')}
+                        </span>
+                      </span>
+                      <ArrowRight size={22} className="shrink-0" />
+                    </button>
+                  )}
+
+                  {slots === undefined ? (
+                    <div className="mt-5 space-y-2.5">
+                      {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton animate-shimmer h-[70px]" />)}
+                    </div>
+                  ) : days.length === 0 ? (
+                    <div className="card-hard mt-5 p-8 text-center">
+                      <p className="font-slab text-2xl">Tout est complet</p>
+                      <p className="text-sm mt-2">De nouveaux créneaux arrivent bientôt. Repasse vite !</p>
+                    </div>
+                  ) : (
+                    <ul className="mt-5 space-y-2.5">
+                      {days.map((d, i) => {
+                        const free = freeOn(d);
+                        return (
+                          <li key={d.toISOString()}>
+                            <Reveal delay={Math.min(i, 4) * 60}>
+                              <button
+                                disabled={!free}
+                                onClick={() => { setDay(d); goTo(1); }}
+                                className="card-hard press w-full flex items-center gap-4 px-4 py-3 text-left disabled:opacity-45 disabled:shadow-none"
+                              >
+                                <span className="font-slab text-4xl w-14 text-center text-red">{format(d, 'd')}</span>
+                                <span className="flex-1">
+                                  <span className="block text-lg font-bold capitalize">{dayWord(d)}</span>
+                                  <span className="block text-sm capitalize">{format(d, 'MMMM', { locale: fr })}</span>
+                                </span>
+                                <span className="text-sm font-bold">{free ? `${free} place${free > 1 ? 's' : ''}` : 'Complet'}</span>
+                              </button>
+                            </Reveal>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              )}
+
+              {step === 1 && day && (
+                <>
+                  <p className="mt-1 capitalize">{format(day, 'EEEE d MMMM', { locale: fr })}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
+                    {daySlots.map((s, i) => {
+                      const free = isFree(s);
+                      return (
+                        <button
+                          key={s.id}
+                          disabled={!free || tearing !== null}
+                          onClick={() => pickTicket(s)}
+                          className={`notched py-3 text-center bg-navy text-paper disabled:cursor-default ${tearing === s.id ? 'anim-tear' : 'anim-dispense'} ${free ? '' : 'opacity-30'}`}
+                          style={{ animationDelay: tearing === s.id ? '0ms' : `${120 + i * 70}ms` }}
+                        >
+                          <span className="block text-[10px] uppercase tracking-[0.3em]">{free ? 'N°' : s.isBooked ? 'Pris' : 'Passé'}</span>
+                          <span className={`font-slab block text-3xl ${free ? '' : 'line-through'}`}>{format(new Date(s.startTime), 'HH:mm')}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {step === 2 && slot && (
+                <form onSubmit={handleBook} className="mt-2 space-y-5">
+                  <p className="capitalize">{format(new Date(slot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}</p>
+                  <Reveal>
+                    <Field label="Prénom" required>
+                      <input
+                        type="text" value={clientName} onChange={e => setClientName(e.target.value)}
+                        autoComplete="given-name" maxLength={100} enterKeyHint="next" required className={inputClass}
+                      />
+                    </Field>
+                  </Reveal>
+                  <Reveal delay={90}>
+                    <Field label="Téléphone" required>
+                      <input
+                        type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)}
+                        autoComplete="tel" enterKeyHint="next" required className={inputClass}
+                      />
+                    </Field>
+                  </Reveal>
+                  <Reveal delay={180}>
+                    <Field label="Email" hint="facultatif">
+                      <input
+                        type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)}
+                        autoComplete="email" enterKeyHint="done" className={inputClass}
+                      />
+                    </Field>
+                  </Reveal>
+                  {formError && <p key={formError} className="animate-shake text-sm font-bold text-red">{formError}</p>}
+                  <Reveal delay={270}>
+                    <button
+                      disabled={!clientName.trim() || !clientPhone.trim() || submitting}
+                      className="press font-slab w-full py-4 text-xl bg-red text-paper shadow-[4px_4px_0_#1c2b4a] flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {submitting && <Loader2 size={20} className="animate-spin" />}
+                      Prendre mon ticket
+                    </button>
+                  </Reveal>
+                </form>
+              )}
+
+              {step === 3 && booked && (
+                <div className="mt-4">
+                  <h2 className="font-slab text-4xl text-center">À bientôt !</h2>
+                  {/* Fente du distributeur, d'où sort le ticket */}
+                  <div className="mt-6 mx-2 h-3 rounded-full bg-navy" />
+                  <div className="relative -mt-1.5 mx-4">
+                    <div className="notched anim-print px-6 py-7 bg-ticket shadow-[0_12px_30px_-12px_rgba(28,43,74,.4)]">
+                      <p className="text-center text-xs font-bold uppercase tracking-[0.35em] text-red">Ticket de passage</p>
+                      <p className="font-slab text-center text-6xl mt-3">{format(new Date(booked.slot.startTime), 'HH:mm')}</p>
+                      <p className="text-center text-lg font-bold capitalize mt-1">{format(new Date(booked.slot.startTime), 'EEEE d MMMM', { locale: fr })}</p>
+                      <div className="my-5 border-t-2 border-dashed border-navy/40" />
+                      <div className="flex justify-between text-sm"><span>Au nom de</span><strong>{booked.name}</strong></div>
+                      <div className="flex justify-between text-sm mt-1"><span>Chez</span><strong>{SHOP_NAME}</strong></div>
+                      <div className="mt-5 h-10" style={{ background: 'repeating-linear-gradient(90deg, #1c2b4a 0 2px, transparent 2px 5px, #1c2b4a 5px 6px, transparent 6px 9px)' }} />
+                    </div>
+                    <div className="font-slab anim-stamp absolute right-3 bottom-6 px-3 py-1 text-2xl text-red border-4 border-red mix-blend-multiply" style={{ animationDelay: '1.1s' }}>
+                      VALIDÉ
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-8">
+                    <a
+                      href={`/api/calendar/${booked.slot.id}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
+                    >
+                      <CalendarPlus size={18} className="text-red" /> Calendrier
+                    </a>
+                    <button
+                      onClick={enableReminder}
+                      disabled={reminder !== 'idle'}
+                      className="card-hard press flex items-center justify-center gap-2 py-3 font-bold"
+                    >
+                      {reminder === 'loading' ? <Loader2 size={18} className="animate-spin" />
+                        : reminder === 'on' ? <BellRing size={18} className="text-ok" />
+                          : <Bell size={18} className="text-red" />}
+                      {reminder === 'on' ? 'Rappel activé' : 'Me rappeler'}
+                    </button>
+                  </div>
+                  <p className="text-center text-sm mt-6">
+                    Retrouve ou annule ton ticket dans <Link href="/mes-rdv" className="font-bold underline underline-offset-4 text-red">Mes RDV</Link>
+                  </p>
+                  <button onClick={restart} className="w-full mt-3 py-3 underline underline-offset-4 hover:text-red">
+                    Réserver un autre créneau
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Téléphone : « Comment ça se passe » sous le choix du jour, qui apparaît au défilement */}
+            {step === 0 && (
+              <section className="mt-16 lg:hidden">
+                <HowItWorks />
+              </section>
+            )}
+          </main>
+        </div>
+      </div>
+
+      <footer className="lg:hidden safe-bottom px-5 py-8 text-sm bg-navy text-paper">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <span className="font-slab text-lg">{SHOP_NAME}</span>
+          <span className="flex gap-4">
+            <Link href="/mes-rdv" className="underline underline-offset-4 py-2">Mes RDV</Link>
+            <Link href="/admin" className="underline underline-offset-4 py-2">Espace coiffeur</Link>
+          </span>
+        </div>
+      </footer>
 
       {toasts}
     </div>
   );
 }
 
-// Sur téléphone, on n'ouvre pas le clavier d'office : il cacherait le récapitulatif du créneau
-const canAutoFocus = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
-
 const inputClass =
-  'w-full bg-ink border border-line rounded-xl pl-11 pr-4 py-3 text-cream placeholder:text-muted/50 outline-none transition focus:border-brass focus:ring-4 focus:ring-brass/15';
+  'w-full mt-1 px-3 py-3 text-lg bg-paper-2 border-2 border-navy outline-none transition-shadow focus:shadow-[4px_4px_0_#b3261e]';
 
-function Field({
-  icon: Icon, label, hint, required, children,
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  label: string;
-  hint?: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
+function Field({ label, hint, required, children }: { label: string; hint?: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-sm text-muted mb-1.5">
+      <span className="text-sm font-bold uppercase tracking-[0.15em]">
         {label}
-        {required && <span className="text-brass"> *</span>}
-        {hint && <span className="text-muted/60"> ({hint})</span>}
+        {required && <span className="text-red"> *</span>}
+        {hint && <span className="normal-case tracking-normal font-normal text-muted"> ({hint})</span>}
       </span>
-      <span className="relative block">
-        <Icon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
-        {children}
-      </span>
+      {children}
     </label>
   );
 }
 
-function UpcomingCard({
-  slots, onPick,
-}: {
-  slots: Slot[] | undefined;
-  onPick: (slot: Slot) => void;
-}) {
+// Les 3 étapes, en tickets qui apparaissent au défilement
+function HowItWorks({ onDark = false }: { onDark?: boolean }) {
   return (
-    <div
-      className="animate-fade-up rounded-3xl border border-line bg-surface/45 p-5 sm:p-6 shadow-2xl shadow-black/50"
-      style={{ animationDelay: '320ms' }}
-    >
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl">Disponibles</h2>
-        <span className="flex items-center gap-2 text-xs text-sage">
-          <span className="relative flex size-2">
-            <span className="absolute inset-0 rounded-full bg-sage opacity-60 animate-ping" />
-            <span className="relative size-2 rounded-full bg-sage" />
-          </span>
-          En direct
-        </span>
-      </div>
-
-      <div className="mt-5 space-y-2">
-        {slots === undefined ? (
-          Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton animate-shimmer h-[66px] rounded-xl" />)
-        ) : slots.length === 0 ? (
-          <div className="py-8 text-center">
-            <Scissors size={22} className="mx-auto text-muted mb-3" />
-            <p className="font-medium">Tout est complet pour l&apos;instant</p>
-            <p className="text-sm text-muted mt-1">De nouveaux créneaux arrivent bientôt.</p>
-          </div>
-        ) : (
-          slots.map((slot, i) => (
-            <button
-              key={slot.id}
-              onClick={() => onPick(slot)}
-              className="animate-fade-up group w-full text-left flex items-center justify-between rounded-xl border border-line bg-ink/50 px-4 py-3 hover:border-brass hover:bg-brass/10 transition"
-              style={{ animationDelay: `${400 + i * 70}ms` }}
-            >
-              <span>
-                <span className="block text-xs text-muted first-letter:uppercase">
-                  {format(new Date(slot.startTime), 'EEEE d MMMM', { locale: fr })}
+    <>
+      <Reveal><h2 className="font-slab text-3xl">Comment ça se passe</h2></Reveal>
+      <ol className="mt-5 space-y-4">
+        {HOW_IT_WORKS.map(([title, text], i) => (
+          <li key={title}>
+            <Reveal delay={i * 120}>
+              <div className={`notched flex gap-4 items-start px-5 py-4 ${onDark ? 'bg-paper text-navy' : 'bg-navy text-paper'}`}>
+                <span className={`font-slab text-4xl leading-none ${onDark ? 'text-red' : 'text-gold'}`}>{i + 1}</span>
+                <span>
+                  <span className="block font-bold text-lg">{title}</span>
+                  <span className="block text-sm opacity-80 mt-0.5">{text}</span>
                 </span>
-                <span className="block font-display text-xl tabular-nums">
-                  {format(new Date(slot.startTime), 'HH:mm')}
-                </span>
-              </span>
-              <span className="text-sm text-brass flex items-center gap-1 opacity-70 group-hover:opacity-100 transition">
-                Réserver <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-              </span>
-            </button>
-          ))
-        )}
-      </div>
-
-      <a href="#reserver" className="mt-2 block py-2 text-center text-sm text-muted hover:text-cream transition">
-        Voir tout le planning
-      </a>
-    </div>
+              </div>
+            </Reveal>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }

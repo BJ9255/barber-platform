@@ -3,22 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0f0d0b">
+  <meta name="theme-color" content="#efe3cc">
   <title>Hors connexion · Lagrobarber</title>
   <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f0d0b; color: #f3ede4;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
-    img { width: 72px; height: 72px; border-radius: 18px; }
-    h1 { font-family: Georgia, serif; font-weight: 400; font-size: 28px; margin: 20px 0 8px; }
-    p { color: #a59c90; margin: 0 0 28px; line-height: 1.5; }
-    button { background: #d4a24c; color: #0f0d0b; border: 0; border-radius: 999px; padding: 14px 28px; font-weight: 600; font-size: 16px; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #efe3cc; color: #1c2b4a;
+      font-family: "Courier New", Courier, monospace; text-align: center; padding: 24px; box-sizing: border-box; }
+    main { background: #f7eedd; border: 2px solid #1c2b4a; box-shadow: 6px 6px 0 #1c2b4a; padding: 32px 28px; max-width: 340px; }
+    img { width: 72px; height: 72px; }
+    p.kicker { color: #b3261e; font-weight: bold; letter-spacing: .3em; text-transform: uppercase; font-size: 12px; margin: 18px 0 0; }
+    h1 { font-family: Rockwell, "Roboto Slab", Georgia, serif; font-weight: 900; font-size: 30px; margin: 6px 0 10px; }
+    p { margin: 0 0 26px; line-height: 1.5; }
+    button { background: #b3261e; color: #efe3cc; border: 0; padding: 14px 28px; font: bold 17px "Courier New", monospace;
+      box-shadow: 4px 4px 0 #1c2b4a; cursor: pointer; }
+    button:active { transform: translate(4px, 4px); box-shadow: none; }
   </style>
 </head>
 <body>
   <main>
     <img src="/icons/icon-192.png" alt="">
+    <p class="kicker">Guichet fermé</p>
     <h1>Pas de connexion</h1>
-    <p>Les créneaux sont en direct :<br>reconnecte-toi pour réserver.</p>
+    <p>Les créneaux sont en direct :<br>reconnecte-toi pour prendre ton ticket.</p>
     <button onclick="location.reload()">Réessayer</button>
   </main>
 </body>

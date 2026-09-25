@@ -155,7 +155,7 @@ export function InstallButton({ className = '' }: { className?: string }) {
                 <Download size={16} className="shrink-0" />
                 <span className="whitespace-nowrap">Installer<span className="hidden sm:inline"> l&apos;app</span></span>
             </button>
-            {/* Rendu dans <body> : l'en-tête flouté (backdrop-filter) emprisonnerait sinon la fenêtre « fixed » */}
+            {/* Rendu dans <body> : un parent animé ou flouté emprisonnerait sinon la fenêtre « fixed » */}
             {iosHelp && createPortal(<IosInstallSheet onClose={() => setIosHelp(false)} />, document.body)}
         </>
     );
@@ -164,22 +164,22 @@ export function InstallButton({ className = '' }: { className?: string }) {
 function IosInstallSheet({ onClose }: { onClose: () => void }) {
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
-            <div className="animate-fade-in absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-            <div role="dialog" aria-modal="true" className="safe-bottom animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl p-7 pb-10 shadow-2xl">
-                <button onClick={onClose} aria-label="Fermer" className="absolute top-4 right-4 size-9 grid place-items-center rounded-full text-muted hover:text-cream hover:bg-surface-2 transition">
-                    <X size={18} />
+            <div className="animate-fade-in absolute inset-0 bg-navy/60" onClick={onClose} />
+            <div role="dialog" aria-modal="true" className="safe-bottom animate-sheet-up relative w-full sm:max-w-md bg-ticket border-2 border-navy sm:shadow-[6px_6px_0_#1c2b4a] p-7 pb-10">
+                <button onClick={onClose} aria-label="Fermer" className="absolute top-3 right-3 size-10 grid place-items-center text-muted hover:text-red transition">
+                    <X size={20} />
                 </button>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/icons/icon-192.png" alt="" className="size-16 rounded-2xl" />
-                <h3 className="font-display text-2xl mt-4">Installer Lagrobarber</h3>
+                <img src="/icons/icon-192.png" alt="" className="size-16 border-2 border-navy" />
+                <h3 className="font-slab text-2xl mt-4">Installer Lagrobarber</h3>
                 <p className="text-muted text-sm mt-1">En deux gestes, l&apos;app arrive sur ton écran d&apos;accueil.</p>
                 <ol className="mt-6 space-y-4">
                     <li className="flex items-center gap-4">
-                        <span className="size-10 shrink-0 grid place-items-center rounded-xl bg-surface-2"><Share size={18} className="text-brass" /></span>
+                        <span className="size-10 shrink-0 grid place-items-center card-hard"><Share size={18} className="text-red" /></span>
                         <span>Appuie sur <strong>Partager</strong> dans la barre de Safari</span>
                     </li>
                     <li className="flex items-center gap-4">
-                        <span className="size-10 shrink-0 grid place-items-center rounded-xl bg-surface-2"><SquarePlus size={18} className="text-brass" /></span>
+                        <span className="size-10 shrink-0 grid place-items-center card-hard"><SquarePlus size={18} className="text-red" /></span>
                         <span>Choisis <strong>Sur l&apos;écran d&apos;accueil</strong></span>
                     </li>
                 </ol>

@@ -1,7 +1,7 @@
 // Service worker de Lagrobarber : il tourne en arrière-plan, même quand l'app est fermée.
 // Rôles : afficher les notifications push, et une page de secours quand il n'y a pas de réseau.
 
-const CACHE = 'lagrobarber-v1';
+const CACHE = 'lagrobarber-v2';
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', event => {

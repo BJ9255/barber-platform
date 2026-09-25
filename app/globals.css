@@ -2,54 +2,27 @@
 
 /* inline : les variables de police sont posées sur <body> par next/font */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-type);
+  --font-slab: var(--font-slab-one);
 }
 
+/* Direction artistique « Ticket rétro » : enseigne de barbier à l'ancienne */
 @theme {
-  --color-ink: #0f0d0b;
-  --color-surface: #191613;
-  --color-surface-2: #221e1a;
-  --color-line: #332d26;
-  --color-cream: #f3ede4;
-  --color-muted: #a59c90;
-  --color-brass: #d4a24c;
-  --color-brass-light: #e6bb6c;
-  --color-sage: #8fc28d;
-  --color-rust: #e2806f;
+  --color-paper: #efe3cc;     /* fond crème */
+  --color-paper-2: #f7eedd;   /* cartes, champs */
+  --color-ticket: #fffaf0;    /* papier du ticket */
+  --color-navy: #1c2b4a;      /* encre principale */
+  --color-red: #b3261e;       /* accent, poteau, tampon */
+  --color-gold: #e8b04a;      /* accent sur fond bleu marine */
+  --color-muted: #5b6478;     /* texte secondaire */
+  --color-line: #1c2b4a33;    /* traits légers */
+  --color-ok: #2f6b3f;        /* confirmation */
 
-  --animate-fade-up: fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  /* Comme fade-up, mais sans partir de l'opacité 0 : le titre principal compte pour la vitesse perçue (LCP) */
-  --animate-rise: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-fade-in: fade-in 0.4s ease-out both;
-  --animate-scale-in: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-sheet-up: sheet-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shake: shake 0.4s ease-in-out;
   --animate-shimmer: shimmer 1.6s linear infinite;
-  --animate-pole: pole 1.4s linear infinite;
-  --animate-draw: draw 0.6s 0.15s ease-out both;
-  --animate-float: float 6s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-sheet-up: sheet-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 
-  @keyframes fade-up {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes rise {
-    from { transform: translateY(16px); }
-    to { transform: translateY(0); }
-  }
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes scale-in {
-    from { opacity: 0; transform: scale(0.94); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  @keyframes sheet-up {
-    from { opacity: 0; transform: translateY(40px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-6px); }
@@ -59,23 +32,18 @@
     from { background-position: -200% 0; }
     to { background-position: 200% 0; }
   }
-  @keyframes pole {
-    from { background-position: 0 0; }
-    to { background-position: 0 56px; }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
-  @keyframes draw {
-    from { stroke-dashoffset: 48; }
-    to { stroke-dashoffset: 0; }
-  }
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+  @keyframes sheet-up {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 
 html {
   scroll-behavior: smooth;
-  color-scheme: dark;
   /* Pas de zoom au double appui : les boutons réagissent immédiatement au toucher */
   touch-action: manipulation;
   /* Pas de grossissement automatique du texte quand on tourne le téléphone */
@@ -86,40 +54,94 @@ html {
 body {
   /* Pas de flash gris sur iPhone / Android quand on touche un bouton */
   -webkit-tap-highlight-color: transparent;
-  background: var(--color-ink);
-  color: var(--color-cream);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-navy);
+  font-family: var(--font-type), "Courier New", monospace;
 }
 
-/* Halo chaud par-dessus le champ d'étoiles (transparent pour le laisser voir) */
-.bg-atmosphere {
-  background:
-    radial-gradient(ellipse 80% 50% at 70% -10%, rgb(212 162 76 / 0.14), transparent 60%),
-    radial-gradient(ellipse 60% 40% at 0% 100%, rgb(212 162 76 / 0.06), transparent 60%);
-}
-
-.skeleton {
-  background: linear-gradient(90deg, var(--color-surface-2) 25%, #2c2722 50%, var(--color-surface-2) 75%);
-  background-size: 200% 100%;
+::selection {
+  background: rgb(179 38 30 / 0.25);
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8) sepia(0.4);
   cursor: pointer;
 }
 
-::selection {
-  background: rgb(212 162 76 / 0.35);
+/* ---------- Éléments du ticket ---------- */
+
+/* Bord « prédécoupé » : encoches rondes sur les côtés */
+.notched {
+  -webkit-mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
 }
+
+/* Carte encadrée à ombre dure, comme un panneau imprimé */
+.card-hard {
+  background: var(--color-paper-2);
+  border: 2px solid var(--color-navy);
+  box-shadow: 4px 4px 0 var(--color-navy);
+}
+
+/* Bouton qu'on enfonce : l'ombre dure s'écrase sous le doigt */
+.press {
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.15s ease;
+}
+.press:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--color-navy) !important;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e6d8bd 25%, #f3e8d3 50%, #e6d8bd 75%);
+  background-size: 200% 100%;
+}
+
+/* ---------- Animations ---------- */
+
+@keyframes pole-spin { to { background-position: 0 48px; } }
+@keyframes sign-swing {
+  0% { transform: rotate(-4deg); } 30% { transform: rotate(2.5deg); } 55% { transform: rotate(-1.2deg); }
+  75% { transform: rotate(0.5deg); } 100% { transform: rotate(0); }
+}
+@keyframes from-right { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+@keyframes from-left { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: none; } }
+@keyframes dispense { from { opacity: 0; transform: translateY(-26px) scaleY(0.6); } to { opacity: 1; transform: none; } }
+@keyframes tear { to { opacity: 0; transform: translate(30px, 60px) rotate(14deg); } }
+@keyframes print { from { clip-path: inset(0 0 100% 0); transform: translateY(-18px); } to { clip-path: inset(0 0 0 0); transform: none; } }
+@keyframes stamp {
+  0% { opacity: 0; transform: rotate(-12deg) scale(2.6); }
+  60% { opacity: 1; transform: rotate(-12deg) scale(0.92); }
+  100% { opacity: 1; transform: rotate(-12deg) scale(1); }
+}
+@keyframes bar-down { from { transform: translateY(-100%); } to { transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+
+.anim-pole { animation: pole-spin 1.2s linear infinite; }
+.anim-swing { transform-origin: 50% -40px; animation: sign-swing 1.6s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+.anim-from-right { animation: from-right 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.anim-from-left { animation: from-left 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.anim-dispense { animation: dispense 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; transform-origin: top; }
+.anim-tear { animation: tear 0.45s ease-in forwards; }
+.anim-print { animation: print 1s steps(14, end) both; }
+.anim-stamp { animation: stamp 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.4) both; }
+.anim-bar { animation: bar-down 0.3s ease-out both; }
+.anim-pop { animation: pop-in 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+
+/* Apparition au défilement : l'élément glisse vers le haut quand il entre dans l'écran */
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.reveal.is-visible { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .anim-pole, .anim-swing, .anim-from-right, .anim-from-left, .anim-dispense, .anim-print, .anim-stamp, .anim-bar, .anim-pop {
+    animation: none !important;
   }
+  .anim-tear { animation-duration: 0.01s !important; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
 
 /* App installée en plein écran : on laisse la place à l'encoche et à la barre d'accueil de l'iPhone */

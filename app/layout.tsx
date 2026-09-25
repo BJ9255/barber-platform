@@ -1,20 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Fraunces } from "next/font/google";
+import { Alfa_Slab_One, Courier_Prime } from "next/font/google";
 import "./globals.css";
 import Starfield from "./components/Starfield";
 import { ServiceWorkerRegister } from "./components/pwa";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Direction artistique « Ticket rétro » : titres à gros empattements, texte façon machine à écrire
+const slab = Alfa_Slab_One({
+  variable: "--font-slab-one",
   subsets: ["latin"],
+  weight: "400",
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const type = Courier_Prime({
+  variable: "--font-type",
   subsets: ["latin"],
-  style: ["normal", "italic"],
-  // Seul le poids normal sert aux titres : des fichiers plus légers, donc un titre affiché plus vite sur mobile
-  weight: "400",
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Lagrobarber",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f0d0b",
+  themeColor: "#efe3cc",
   // Le contenu passe sous l'encoche et la barre d'accueil : les marges sont gérées avec env(safe-area-inset-*)
   viewportFit: "cover",
 };
@@ -46,7 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={`${geistSans.variable} ${fraunces.variable} antialiased`}>
+      <body className={`${slab.variable} ${type.variable} antialiased`}>
         <ServiceWorkerRegister />
         <Starfield />
         {children}

@@ -1,41 +1,55 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const SHOP_NAME = 'Lagrobarber';
+export const SERVICES = 'Coupe · Dégradé · Barbe';
 
-// Poteau de barbier animé
-export function BarberPole({ size = 'md' }: { size?: 'sm' | 'md' }) {
-    const dims = size === 'md' ? 'w-4 h-14' : 'w-2.5 h-7';
-    const cap = size === 'md' ? 'h-1.5 w-5' : 'h-1 w-3.5';
-
+// Poteau de barbier : rayures rouge / blanc / bleu qui tournent en continu.
+// Le motif est répété deux fois dans la tuile, ce qui rend le raccord invisible pendant la rotation.
+export function BarberPole({ size = 'md', light = false }: { size?: 'sm' | 'md' | 'lg'; light?: boolean }) {
+    const dims = { sm: 'w-2 h-7', md: 'w-3.5 h-20', lg: 'w-3.5 h-20 lg:w-5 lg:h-36' }[size];
     return (
-        <div className="flex flex-col items-center" aria-hidden>
-            <div className={`${cap} rounded-full bg-brass`} />
-            <div
-                className={`${dims} rounded-sm overflow-hidden animate-pole ring-1 ring-black/40`}
-                style={{
-                    backgroundImage:
-                        'repeating-linear-gradient(-45deg, #f3ede4 0 10px, #b8322a 10px 20px, #f3ede4 20px 30px, #1f3f7a 30px 40px)',
-                    backgroundSize: '100% 56px',
-                }}
-            />
-            <div className={`${cap} rounded-full bg-brass`} />
-        </div>
+        <div
+            aria-hidden
+            className={`anim-pole shrink-0 rounded-full overflow-hidden ${dims}`}
+            style={{
+                border: `2px solid ${light ? '#efe3cc' : '#1c2b4a'}`,
+                background: 'linear-gradient(-45deg, #b3261e 0 12.5%, #fffaf0 0 25%, #1c2b4a 0 37.5%, #fffaf0 0 50%, #b3261e 0 62.5%, #fffaf0 0 75%, #1c2b4a 0 87.5%, #fffaf0 0)',
+                backgroundSize: '48px 48px',
+            }}
+        />
     );
 }
 
-export function Logo({ onClick }: { onClick?: () => void }) {
+// Logo compact : petit poteau + nom, pour les en-têtes
+export function Logo({ light = false }: { light?: boolean }) {
     return (
-        <Link href="/" onClick={onClick} className="flex items-center gap-3 group">
-            <BarberPole size="sm" />
-            <span className="font-display text-xl tracking-tight group-hover:text-brass-light transition-colors">
-                {SHOP_NAME}
-            </span>
+        <Link href="/" className="flex items-center gap-2.5 py-2 min-h-10 group">
+            <BarberPole size="sm" light={light} />
+            <span className="font-slab text-xl leading-none group-hover:text-red transition-colors">{SHOP_NAME}</span>
         </Link>
     );
+}
+
+// Ajoute « is-visible » quand l'élément entre dans l'écran (une seule fois) : voir .reveal dans globals.css
+export function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const io = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                el.classList.add('is-visible');
+                io.disconnect();
+            }
+        }, { rootMargin: '0px 0px -40px 0px' });
+        io.observe(el);
+        return () => io.disconnect();
+    }, []);
+    return <div ref={ref} className={`reveal ${className}`} style={{ transitionDelay: `${delay}ms` }}>{children}</div>;
 }
 
 // Notifications légères qui remplacent les alert()
@@ -56,11 +70,11 @@ export function useToasts() {
                 <div
                     key={t.id}
                     role="status"
-                    className="animate-sheet-up flex items-center gap-3 rounded-xl border border-line bg-surface-2/95 backdrop-blur px-4 py-3 shadow-2xl text-sm"
+                    className="animate-sheet-up flex items-center gap-3 px-4 py-3 text-sm font-bold bg-ticket border-2 border-navy shadow-[4px_4px_0_#1c2b4a]"
                 >
                     {t.type === 'success'
-                        ? <CheckCircle2 size={18} className="text-sage shrink-0" />
-                        : <AlertCircle size={18} className="text-rust shrink-0" />}
+                        ? <CheckCircle2 size={18} className="text-ok shrink-0" />
+                        : <AlertCircle size={18} className="text-red shrink-0" />}
                     {t.message}
                 </div>
             ))}

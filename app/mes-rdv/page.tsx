@@ -4,10 +4,9 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { format, formatDistanceToNow, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import {
-    ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Scissors, Smartphone, Trash2, X,
-} from 'lucide-react';
-import { Logo, useToasts } from '../components/ui';
+import { ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Smartphone, Trash2, X } from 'lucide-react';
+import { BarberPole, Logo, Reveal, SHOP_NAME, useToasts } from '../components/ui';
+import { warp } from '../components/Starfield';
 import {
     getPushSubscription, getSavedBookings, pushErrorMessage, setSavedBookings, updateSavedBooking,
     type PushError, type SavedBooking,
@@ -31,6 +30,7 @@ export default function MyBookingsPage() {
     const [bookings, setBookings] = useState<Booking[] | undefined>(undefined);
     const [armedCancel, setArmedCancel] = useState<string | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
+    const [tearing, setTearing] = useState<string | null>(null);
     const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { notify, toasts } = useToasts();
 
@@ -73,6 +73,15 @@ export default function MyBookingsPage() {
         setBookings(prev => prev?.filter(b => b.token !== token));
     };
 
+    // Le ticket se déchire, puis disparaît de la liste
+    const tearOff = (token: string) => {
+        setTearing(token);
+        setTimeout(() => {
+            forget(token);
+            setTearing(null);
+        }, 450);
+    };
+
     // Annulation en deux appuis, comme la suppression côté coiffeur
     const cancel = async (booking: Booking) => {
         if (armedCancel !== booking.token) {
@@ -91,7 +100,7 @@ export default function MyBookingsPage() {
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok || res.status === 404) {
-                forget(booking.token);
+                tearOff(booking.token);
                 notify('Rendez-vous annulé, le créneau est libéré');
             } else {
                 notify(data.error || "Impossible d'annuler", 'error');
@@ -128,42 +137,39 @@ export default function MyBookingsPage() {
     const past = bookings?.filter(b => b.status === 'past').reverse() ?? [];
 
     return (
-        <div className="min-h-dvh bg-atmosphere">
-            <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-                    <Logo />
-                    <Link href="/" className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition">
-                        <ArrowLeft size={15} /> Réserver
+        <div className="min-h-dvh overflow-x-clip">
+            <header className="safe-top sticky top-0 z-40 bg-navy text-paper">
+                <div className="max-w-xl mx-auto px-5 h-14 flex items-center justify-between">
+                    <Logo light />
+                    <Link href="/" onClick={() => warp(0.5)} className="flex items-center gap-2 text-sm font-bold min-h-10 px-2 hover:text-gold transition">
+                        <ArrowLeft size={16} /> Réserver
                     </Link>
                 </div>
             </header>
 
-            <main className="max-w-xl mx-auto px-4 sm:px-6 py-10 sm:py-14 pb-24">
-                <p className="animate-fade-up text-brass text-sm tracking-[0.2em] uppercase">Sans compte</p>
-                <h1 className="animate-fade-up font-display text-4xl sm:text-5xl mt-2" style={{ animationDelay: '80ms' }}>
-                    Mes rendez-vous
-                </h1>
-                <p className="animate-fade-up text-muted mt-3 flex items-start gap-2 text-sm" style={{ animationDelay: '160ms' }}>
-                    <Smartphone size={16} className="shrink-0 mt-0.5" />
-                    Tes réservations sont gardées sur ce téléphone, rien à retenir.
-                </p>
+            <main className="max-w-xl mx-auto px-5 py-10 pb-24">
+                <div className="anim-swing flex items-center gap-4">
+                    <BarberPole />
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-red">Sans compte</p>
+                        <h1 className="font-slab text-[32px] sm:text-5xl leading-none mt-1 whitespace-nowrap">Mes rendez-vous</h1>
+                        <p className="text-sm mt-2 flex items-center gap-2"><Smartphone size={15} className="shrink-0" /> Tes tickets sont gardés sur ce téléphone.</p>
+                    </div>
+                </div>
 
-                <div className="mt-10 space-y-3">
+                <div className="mt-10 space-y-5">
                     {bookings === undefined ? (
-                        Array.from({ length: 2 }).map((_, i) => <div key={i} className="skeleton animate-shimmer h-40 rounded-2xl" />)
+                        Array.from({ length: 2 }).map((_, i) => <div key={i} className="skeleton animate-shimmer h-56" />)
                     ) : upcoming.length === 0 ? (
-                        <div className="animate-fade-in rounded-2xl border border-line bg-surface/45 p-10 text-center">
-                            <div className="size-14 rounded-full bg-surface-2 grid place-items-center mx-auto mb-4">
-                                <Scissors size={22} className="text-muted" />
-                            </div>
-                            <p className="font-medium">Aucun rendez-vous à venir</p>
-                            <p className="text-sm text-muted mt-1">Réserve ton prochain créneau en quelques secondes.</p>
+                        <div className="anim-pop card-hard p-10 text-center">
+                            <p className="font-slab text-2xl">Aucun ticket en cours</p>
+                            <p className="text-sm mt-2">Réserve ton prochain créneau en quelques secondes.</p>
                             <Link
-                                href="/#reserver"
-                                className="group mt-6 inline-flex items-center gap-2 rounded-full bg-brass text-ink font-semibold px-6 py-3 hover:bg-brass-light transition"
+                                href="/"
+                                onClick={() => warp(0.8)}
+                                className="press font-slab mt-6 inline-flex items-center gap-2 px-6 py-3 text-lg bg-red text-paper shadow-[4px_4px_0_#1c2b4a]"
                             >
-                                Prendre rendez-vous
-                                <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
+                                Prendre un ticket <ArrowRight size={18} />
                             </Link>
                         </div>
                     ) : (
@@ -171,81 +177,92 @@ export default function MyBookingsPage() {
                             const date = new Date(b.startTime);
                             const armed = armedCancel === b.token;
                             const loading = busy === b.token;
+                            const torn = tearing === b.token ? 'anim-tear' : '';
+
                             if (b.status === 'cancelled') {
                                 return (
-                                    <div key={b.token} className="animate-fade-up rounded-2xl border border-rust/30 bg-rust/5 p-5 flex items-center gap-4" style={{ animationDelay: `${i * 70}ms` }}>
-                                        <div className="flex-1">
-                                            <p className="text-xs text-rust uppercase tracking-wider">Annulé par le salon</p>
-                                            <p className="mt-1 first-letter:uppercase">{dayLabel(date)} · {format(date, 'HH:mm')}</p>
+                                    <Reveal key={b.token} delay={i * 80}>
+                                        <div className={`notched ${torn} flex items-center gap-4 px-6 py-4 bg-ticket opacity-80`}>
+                                            <div className="flex-1">
+                                                <p className="text-xs font-bold uppercase tracking-[0.25em] text-red">Annulé par le salon</p>
+                                                <p className="mt-1 font-bold first-letter:uppercase line-through">{dayLabel(date)} · {format(date, 'HH:mm')}</p>
+                                            </div>
+                                            <button onClick={() => tearOff(b.token)} aria-label="Retirer" className="size-10 grid place-items-center hover:text-red transition">
+                                                <X size={18} />
+                                            </button>
                                         </div>
-                                        <button onClick={() => forget(b.token)} aria-label="Retirer" className="p-2 text-muted hover:text-cream transition">
-                                            <X size={18} />
-                                        </button>
-                                    </div>
+                                    </Reveal>
                                 );
                             }
+
                             return (
-                                <div
-                                    key={b.token}
-                                    className="animate-fade-up rounded-2xl border border-brass/30 bg-gradient-to-br from-brass/10 to-surface/80 p-6"
-                                    style={{ animationDelay: `${i * 70}ms` }}
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <p className="text-sm text-muted first-letter:uppercase">{dayLabel(date)}</p>
-                                            <p className="font-display text-4xl tabular-nums mt-1">{format(date, 'HH:mm')}</p>
+                                <Reveal key={b.token} delay={i * 80}>
+                                    <div className={`${torn}`}>
+                                        <div className="notched px-6 py-6 bg-ticket shadow-[0_12px_30px_-14px_rgba(28,43,74,.45)]">
+                                            <p className="text-xs font-bold uppercase tracking-[0.3em] text-red">Ticket de passage</p>
+                                            <p className="font-slab text-5xl mt-3">{format(date, 'HH:mm')}</p>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                <p className="font-bold text-lg first-letter:uppercase">{dayLabel(date)}</p>
+                                                <span className="text-xs font-bold px-2 py-0.5 border-2 border-navy">
+                                                    {formatDistanceToNow(date, { addSuffix: true, locale: fr })}
+                                                </span>
+                                            </div>
+                                            <div className="my-4 border-t-2 border-dashed border-navy/40" />
+                                            <div className="flex justify-between text-sm"><span>Chez</span><strong>{SHOP_NAME}</strong></div>
+
+                                            <div className="grid grid-cols-2 gap-2 mt-5 text-sm">
+                                                <a
+                                                    href={`/api/calendar/${b.slotId}`}
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    className="card-hard press flex items-center justify-center gap-2 py-2.5 font-bold"
+                                                >
+                                                    <CalendarPlus size={16} className="text-red" /> Calendrier
+                                                </a>
+                                                <button
+                                                    onClick={() => enableReminder(b)}
+                                                    disabled={b.reminder || loading}
+                                                    className="card-hard press flex items-center justify-center gap-2 py-2.5 font-bold"
+                                                >
+                                                    {b.reminder
+                                                        ? <><BellRing size={16} className="text-ok" /> Rappel activé</>
+                                                        : <><Bell size={16} className="text-red" /> Me rappeler</>}
+                                                </button>
+                                            </div>
+                                            <button
+                                                onClick={() => cancel(b)}
+                                                disabled={loading}
+                                                className={`mt-3 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-bold transition ${armed
+                                                    ? 'bg-red text-paper'
+                                                    : 'hover:text-red hover:bg-red/10'
+                                                    }`}
+                                            >
+                                                {loading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={15} />}
+                                                {armed ? "Confirmer l'annulation" : 'Annuler le rendez-vous'}
+                                            </button>
                                         </div>
-                                        <span className="shrink-0 text-xs rounded-full bg-brass/15 text-brass-light px-3 py-1">
-                                            {formatDistanceToNow(date, { addSuffix: true, locale: fr })}
-                                        </span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 mt-6 text-sm">
-                                        <a
-                                            href={`/api/calendar/${b.slotId}`}
-                                            target="_blank"
-                                            rel="noopener"
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-line bg-ink/40 py-2.5 hover:border-brass transition"
-                                        >
-                                            <CalendarPlus size={16} className="text-brass" /> Calendrier
-                                        </a>
-                                        <button
-                                            onClick={() => enableReminder(b)}
-                                            disabled={b.reminder || loading}
-                                            className="flex items-center justify-center gap-2 rounded-xl border border-line bg-ink/40 py-2.5 hover:border-brass transition disabled:hover:border-line"
-                                        >
-                                            {b.reminder
-                                                ? <><BellRing size={16} className="text-sage" /> Rappel activé</>
-                                                : <><Bell size={16} className="text-brass" /> Me rappeler</>}
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={() => cancel(b)}
-                                        disabled={loading}
-                                        className={`mt-2 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm transition ${armed
-                                            ? 'bg-rust text-ink font-medium'
-                                            : 'text-muted hover:text-rust hover:bg-rust/10'
-                                            }`}
-                                    >
-                                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={15} />}
-                                        {armed ? "Confirmer l'annulation" : 'Annuler le rendez-vous'}
-                                    </button>
-                                </div>
+                                </Reveal>
                             );
                         })
                     )}
                 </div>
 
                 {past.length > 0 && (
-                    <section className="mt-12">
-                        <h2 className="text-sm text-muted uppercase tracking-wider mb-3">Passés</h2>
-                        <ul className="rounded-2xl border border-line bg-surface/45 divide-y divide-line">
-                            {past.map(b => (
-                                <li key={b.token} className="px-5 py-3.5 flex items-center justify-between text-sm">
-                                    <span className="first-letter:uppercase">{format(new Date(b.startTime), 'EEEE d MMMM', { locale: fr })}</span>
-                                    <span className="text-muted tabular-nums">{format(new Date(b.startTime), 'HH:mm')}</span>
-                                </li>
-                            ))}
-                        </ul>
+                    <section className="mt-14">
+                        <Reveal>
+                            <h2 className="text-sm font-bold uppercase tracking-[0.25em]">Tickets passés</h2>
+                        </Reveal>
+                        <Reveal delay={100}>
+                            <ul className="card-hard mt-3 divide-y-2 divide-dashed divide-navy/20">
+                                {past.map(b => (
+                                    <li key={b.token} className="px-5 py-3 flex items-center justify-between text-sm">
+                                        <span className="first-letter:uppercase">{format(new Date(b.startTime), 'EEEE d MMMM', { locale: fr })}</span>
+                                        <span className="font-slab tabular-nums">{format(new Date(b.startTime), 'HH:mm')}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </Reveal>
                     </section>
                 )}
             </main>

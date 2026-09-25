@@ -10,11 +10,14 @@ export function warp(strength = 1) {
 const DEPTH = 1000;       // profondeur maximale d'une étoile
 const FOCAL = 500;        // distance focale de la projection
 const BASE_SPEED = 0.07;  // unités de profondeur par milliseconde
-const COLORS = ['243,237,228', '243,237,228', '243,237,228', '230,187,108', '180,200,255'];
+// Traits bleu marine et quelques rouges : les couleurs du ticket, sur le fond crème
+const COLORS = ['28,43,74', '28,43,74', '28,43,74', '179,38,30'];
+// Fond clair : on garde des traits discrets pour ne pas gêner la lecture
+const MAX_ALPHA = 0.45;
 
 type Star = { x: number; y: number; z: number; color: string };
 
-// Fond animé : voyage infini à travers un champ d'étoiles
+// Fond animé : voyage infini à travers un champ d'étoiles, dessiné à l'encre sur le papier crème
 export default function Starfield() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -103,9 +106,9 @@ export default function Starfield() {
                 const [px, py] = project(star.x, star.y, Math.min(DEPTH, star.z + travel * trail));
 
                 const closeness = 1 - star.z / DEPTH;
-                const alpha = Math.min(1, small ? 0.12 + closeness * 1.3 : closeness * closeness * 1.4);
+                const alpha = MAX_ALPHA * Math.min(1, small ? 0.15 + closeness * 1.2 : closeness * closeness * 1.4);
                 ctx.strokeStyle = `rgba(${star.color},${alpha})`;
-                ctx.lineWidth = Math.max(small ? 0.7 : 0.4, closeness * 2.4);
+                ctx.lineWidth = Math.max(small ? 0.7 : 0.5, closeness * 2.2);
                 ctx.beginPath();
                 ctx.moveTo(px, py);
                 ctx.lineTo(sx, sy);

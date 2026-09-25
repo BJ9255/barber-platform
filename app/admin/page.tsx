@@ -8,7 +8,7 @@ import {
     Trash2, Plus, Loader2, Phone, Mail, Eye, EyeOff, ArrowLeft, LogOut, ExternalLink,
     RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check, Sparkles, Bell, BellRing,
 } from 'lucide-react';
-import { BarberPole, Logo, useToasts } from '../components/ui';
+import { BarberPole, Logo, Reveal, useToasts } from '../components/ui';
 import { generateDemoSlots } from './demo';
 import { warp } from '../components/Starfield';
 import { getExistingPushEndpoint, getPushSubscription, pushErrorMessage, type PushError } from '../components/pwa';
@@ -276,73 +276,72 @@ export default function AdminPage() {
 
     if (checkingSession) {
         return (
-            <div className="min-h-dvh grid place-items-center bg-atmosphere">
-                <Loader2 className="animate-spin text-brass" size={28} />
+            <div className="min-h-dvh grid place-items-center">
+                <Loader2 className="animate-spin text-red" size={28} />
             </div>
         );
     }
 
     if (!isAuthenticated) {
         return (
-            <div className="min-h-dvh bg-atmosphere flex flex-col items-center justify-center p-4">
-                <form
-                    onSubmit={handleLogin}
-                    className="animate-scale-in w-full max-w-sm rounded-3xl border border-line bg-surface/90 backdrop-blur p-8 shadow-2xl shadow-black/50"
-                >
-                    <div className="flex justify-center mb-6">
-                        <BarberPole size="md" />
+            <div className="safe-top min-h-dvh flex flex-col items-center justify-center p-5">
+                <form onSubmit={handleLogin} className="anim-pop card-hard w-full max-w-sm p-8 shadow-[6px_6px_0_#1c2b4a]">
+                    <div className="anim-swing flex items-center justify-center gap-4">
+                        <BarberPole />
+                        <div className="text-center">
+                            <p className="text-xs font-bold uppercase tracking-[0.3em] text-red">Réservé au salon</p>
+                            <h1 className="font-slab text-3xl leading-none mt-1">Espace coiffeur</h1>
+                        </div>
+                        <BarberPole />
                     </div>
-                    <h1 className="font-display text-3xl text-center">Espace coiffeur</h1>
-                    <p className="text-muted text-sm text-center mt-2">Gère tes créneaux et tes clients.</p>
+                    <p className="text-sm text-center mt-4">Gère tes créneaux et tes clients.</p>
 
-                    <div key={loginError} className={`relative mt-8 ${loginError ? 'animate-shake' : ''}`}>
+                    <div key={loginError} className={`relative mt-7 ${loginError ? 'animate-shake' : ''}`}>
                         <input
                             type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             placeholder="Mot de passe"
+                            aria-label="Mot de passe"
                             autoComplete="current-password"
                             autoFocus={canAutoFocus}
                             enterKeyHint="go"
-                            className={`w-full bg-ink border rounded-xl px-4 pr-12 py-3 outline-none transition focus:ring-4 ${loginError
-                                ? 'border-rust focus:ring-rust/15'
-                                : 'border-line focus:border-brass focus:ring-brass/15'
-                                }`}
+                            className={`w-full px-4 pr-12 py-3 text-lg bg-ticket border-2 outline-none transition-shadow placeholder:text-muted/70 ${loginError ? 'border-red focus:shadow-[4px_4px_0_#b3261e]' : 'border-navy focus:shadow-[4px_4px_0_#b3261e]'}`}
                         />
                         <button
                             type="button"
                             onClick={() => setShowPassword(v => !v)}
                             aria-label={showPassword ? 'Masquer' : 'Afficher'}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 text-muted hover:text-cream transition"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 hover:text-red transition"
                         >
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
                     </div>
-                    {loginError && <p className="text-rust text-sm mt-2">{loginError}</p>}
+                    {loginError && <p className="text-red text-sm font-bold mt-2">{loginError}</p>}
 
                     <button
                         type="submit"
                         disabled={!password || loggingIn}
-                        className="mt-5 w-full rounded-full bg-brass text-ink font-semibold py-3 hover:bg-brass-light transition flex items-center justify-center gap-2 disabled:opacity-40"
+                        className="press font-slab mt-5 w-full py-3 text-xl bg-red text-paper shadow-[4px_4px_0_#1c2b4a] flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                         {loggingIn && <Loader2 className="animate-spin" size={18} />}
                         Entrer
                     </button>
 
-                    <div className="flex items-center gap-3 my-5 text-xs text-muted/70">
-                        <span className="h-px flex-1 bg-line" /> ou <span className="h-px flex-1 bg-line" />
+                    <div className="flex items-center gap-3 my-5 text-xs">
+                        <span className="h-0 flex-1 border-t-2 border-dashed border-navy/30" /> ou <span className="h-0 flex-1 border-t-2 border-dashed border-navy/30" />
                     </div>
                     <button
                         type="button"
                         onClick={startDemo}
-                        className="w-full rounded-full border border-line hover:border-brass hover:text-brass-light py-3 transition flex items-center justify-center gap-2"
+                        className="notched press w-full py-3 bg-navy text-paper font-bold flex items-center justify-center gap-2"
                     >
-                        <Sparkles size={17} className="text-brass" />
+                        <Sparkles size={17} className="text-gold" />
                         Voir la démo
                     </button>
-                    <p className="text-xs text-muted/70 text-center mt-2">Données fictives, rien n&apos;est enregistré.</p>
+                    <p className="text-xs text-center mt-2">Données fictives, rien n&apos;est enregistré.</p>
                 </form>
-                <Link href="/" className="mt-4 py-2 flex items-center gap-2 text-sm text-muted hover:text-cream transition">
+                <Link href="/" className="mt-5 py-2 flex items-center gap-2 text-sm font-bold hover:text-red transition">
                     <ArrowLeft size={15} /> Retour au site
                 </Link>
                 {toasts}
@@ -377,16 +376,16 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="min-h-dvh bg-atmosphere">
-            <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-                    <Logo />
+        <div className="min-h-dvh">
+            <header className="safe-top sticky top-0 z-40 bg-navy text-paper">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+                    <Logo light />
                     <div className="flex items-center gap-1 sm:gap-2">
                         <a
                             href="/"
                             target="_blank"
                             aria-label="Voir le site"
-                            className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+                            className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm font-bold px-3 py-2 hover:text-gold transition"
                         >
                             <ExternalLink size={15} />
                             <span className="hidden sm:inline">Voir le site</span>
@@ -394,7 +393,7 @@ export default function AdminPage() {
                         <button
                             onClick={handleLogout}
                             aria-label={demo ? 'Quitter la démo' : 'Déconnexion'}
-                            className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+                            className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm font-bold px-3 py-2 hover:text-gold transition"
                         >
                             <LogOut size={15} />
                             <span className="hidden sm:inline">{demo ? 'Quitter la démo' : 'Déconnexion'}</span>
@@ -402,7 +401,7 @@ export default function AdminPage() {
                     </div>
                 </div>
                 {demo && (
-                    <div className="border-t border-brass/20 bg-brass/10 text-brass-light text-sm">
+                    <div className="bg-gold text-navy text-sm font-bold">
                         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-center gap-2 text-center">
                             <Sparkles size={15} className="shrink-0" />
                             Mode démo : les clients sont fictifs et rien n&apos;est enregistré.
@@ -412,287 +411,276 @@ export default function AdminPage() {
             </header>
 
             <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-                <div className="animate-fade-up flex flex-wrap items-end justify-between gap-4 mb-10">
-                    <div>
-                        <p className="text-brass text-sm tracking-[0.2em] uppercase">
-                            {format(now, 'EEEE d MMMM', { locale: fr })}
-                        </p>
-                        <h1 className="font-display text-4xl sm:text-5xl mt-2">Tableau de bord</h1>
+                <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+                    <div className="anim-swing flex items-center gap-4">
+                        <BarberPole />
+                        <div>
+                            <p className="text-sm font-bold uppercase tracking-[0.25em] text-red">
+                                {format(now, 'EEEE d MMMM', { locale: fr })}
+                            </p>
+                            <h1 className="font-slab text-4xl sm:text-5xl leading-none mt-1">Tableau de bord</h1>
+                        </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={togglePush}
                             disabled={pushState === 'loading'}
-                            className={`flex items-center gap-2 text-sm border rounded-full px-4 py-2 transition ${pushState === 'on'
-                                ? 'border-sage/40 text-sage hover:border-sage'
-                                : 'border-line text-muted hover:text-cream hover:border-brass'
-                                }`}
+                            className={`card-hard press flex items-center gap-2 text-sm font-bold px-4 py-2 ${pushState === 'on' ? 'text-ok' : ''}`}
                         >
                             {pushState === 'loading' ? <Loader2 size={15} className="animate-spin" />
                                 : pushState === 'on' ? <BellRing size={15} /> : <Bell size={15} />}
                             {pushState === 'on' ? 'Notifications activées' : 'Activer les notifications'}
                         </button>
-                        <button
-                            onClick={fetchSlots}
-                            className="flex items-center gap-2 text-sm text-muted hover:text-cream border border-line hover:border-brass rounded-full px-4 py-2 transition"
-                        >
+                        <button onClick={fetchSlots} className="card-hard press flex items-center gap-2 text-sm font-bold px-4 py-2">
                             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                             Actualiser
                         </button>
                     </div>
                 </div>
 
-                {/* Statistiques */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                {/* Statistiques : trois tickets */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                     {[
-                        { icon: CalendarCheck, label: 'Réservations à venir', value: bookedUpcoming.length, tone: 'text-sage' },
-                        { icon: CalendarPlus, label: 'Créneaux libres', value: freeUpcoming.length, tone: 'text-brass' },
-                        { icon: Sun, label: "Clients aujourd'hui", value: bookedToday.length, tone: 'text-cream' },
-                    ].map(({ icon: Icon, label, value, tone }, i) => (
-                        <div
-                            key={label}
-                            className="animate-fade-up rounded-2xl border border-line bg-surface/80 p-5 flex items-center gap-4"
-                            style={{ animationDelay: `${80 + i * 70}ms` }}
-                        >
-                            <div className="size-11 rounded-xl bg-surface-2 grid place-items-center">
-                                <Icon size={20} className={tone} />
+                        { icon: CalendarCheck, label: 'Réservations à venir', value: bookedUpcoming.length },
+                        { icon: CalendarPlus, label: 'Créneaux libres', value: freeUpcoming.length },
+                        { icon: Sun, label: "Clients aujourd'hui", value: bookedToday.length },
+                    ].map(({ icon: Icon, label, value }, i) => (
+                        <Reveal key={label} delay={i * 90}>
+                            <div className="notched bg-navy text-paper px-6 py-5 flex items-center gap-4">
+                                <Icon size={22} className="text-gold shrink-0" />
+                                <div>
+                                    <p className="font-slab text-4xl tabular-nums leading-none">{loading && slots.length === 0 ? '–' : value}</p>
+                                    <p className="text-sm mt-1">{label}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="font-display text-3xl tabular-nums leading-none">{loading && slots.length === 0 ? '–' : value}</p>
-                                <p className="text-sm text-muted mt-1">{label}</p>
-                            </div>
-                        </div>
+                        </Reveal>
                     ))}
                 </div>
 
-                <div className="grid lg:grid-cols-[1fr_1.15fr] gap-6 items-start">
-                    <div className="space-y-6 lg:sticky lg:top-24">
-                        {/* Prochain client */}
-                        <section
-                            className="animate-fade-up rounded-2xl border border-brass/30 bg-gradient-to-br from-brass/10 to-surface/80 p-6"
-                            style={{ animationDelay: '300ms' }}
-                        >
-                            <p className="text-xs text-brass tracking-[0.2em] uppercase">Prochain client</p>
-                            {nextBooking ? (
-                                <>
-                                    <div className="flex items-start justify-between gap-4 mt-3">
-                                        <div>
-                                            <p className="font-display text-2xl">{nextBooking.clientName}</p>
-                                            <p className="text-muted text-sm mt-1 first-letter:uppercase">
-                                                {dayLabel(new Date(nextBooking.startTime))} · {format(new Date(nextBooking.startTime), 'HH:mm')}
-                                            </p>
-                                        </div>
-                                        <span className="shrink-0 text-xs rounded-full bg-brass/15 text-brass-light px-3 py-1">
-                                            {formatDistanceToNow(new Date(nextBooking.startTime), { addSuffix: true, locale: fr })}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 mt-5">
-                                        {nextBooking.clientPhone && (
-                                            <a
-                                                href={`tel:${nextBooking.clientPhone}`}
-                                                className="flex items-center gap-2 rounded-full bg-brass text-ink text-sm font-semibold px-4 py-2 hover:bg-brass-light transition"
-                                            >
-                                                <Phone size={15} /> {nextBooking.clientPhone}
-                                            </a>
-                                        )}
-                                        {nextBooking.clientEmail && (
-                                            <a
-                                                href={`mailto:${nextBooking.clientEmail}`}
-                                                className="flex items-center gap-2 rounded-full border border-line text-sm px-4 py-2 hover:border-brass transition"
-                                            >
-                                                <Mail size={15} /> Email
-                                            </a>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <p className="text-muted mt-3">Aucune réservation à venir pour l&apos;instant.</p>
-                            )}
-                        </section>
-
-                        {/* Ajouter des créneaux */}
-                        <section
-                            className="animate-fade-up rounded-2xl border border-line bg-surface/80 p-6"
-                            style={{ animationDelay: '380ms' }}
-                        >
-                            <h2 className="font-display text-xl flex items-center gap-2">
-                                <Plus size={20} className="text-brass" /> Ouvrir des créneaux
-                            </h2>
-                            <p className="text-sm text-muted mt-1">Choisis un jour, puis toutes les heures à ouvrir.</p>
-
-                            <input
-                                type="date"
-                                value={newDate}
-                                min={format(now, 'yyyy-MM-dd')}
-                                onChange={e => { setNewDate(e.target.value); setSelectedTimes([]); }}
-                                className="mt-5 w-full bg-ink border border-line rounded-xl px-4 py-3 outline-none focus:border-brass focus:ring-4 focus:ring-brass/15 transition"
-                            />
-                            {newDate && (
-                                <p className="text-sm text-muted mt-2 first-letter:uppercase">
-                                    {format(new Date(`${newDate}T12:00`), 'EEEE d MMMM', { locale: fr })}
-                                </p>
-                            )}
-
-                            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-4">
-                                {[...PRESET_TIMES, ...customTimes].map(time => {
-                                    const taken = takenTimes.has(time);
-                                    const past = isPastTime(time);
-                                    const selected = selectedTimes.includes(time);
-                                    return (
-                                        <button
-                                            key={time}
-                                            type="button"
-                                            onClick={() => toggleTime(time)}
-                                            disabled={taken || past}
-                                            title={taken ? 'Déjà ouvert' : past ? 'Heure passée' : undefined}
-                                            className={`relative rounded-lg py-2 text-sm tabular-nums border transition-all duration-150 active:scale-95 ${selected
-                                                ? 'bg-brass text-ink border-brass font-semibold'
-                                                : taken
-                                                    ? 'border-sage/30 text-sage/70 bg-sage/5 cursor-not-allowed'
-                                                    : 'border-line hover:border-brass/60'
-                                                } disabled:cursor-not-allowed ${past && !taken ? 'opacity-25' : ''}`}
-                                        >
-                                            {time}
-                                            {taken && <Check size={11} className="absolute top-1 right-1" />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="flex gap-2 mt-3">
-                                <input
-                                    type="time"
-                                    value={customTime}
-                                    onChange={e => setCustomTime(e.target.value)}
-                                    className="flex-1 bg-ink border border-line rounded-lg px-3 py-2 text-base sm:text-sm outline-none focus:border-brass transition"
-                                    aria-label="Autre heure"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={addCustomTime}
-                                    disabled={!customTime || takenTimes.has(customTime) || isPastTime(customTime)}
-                                    className="rounded-lg border border-line px-3 text-sm hover:border-brass transition disabled:opacity-30"
-                                >
-                                    Autre heure
-                                </button>
-                            </div>
-
-                            <button
-                                onClick={handleAddSlots}
-                                disabled={selectedTimes.length === 0 || adding}
-                                className="mt-5 w-full rounded-full bg-brass text-ink font-semibold py-3 hover:bg-brass-light transition flex items-center justify-center gap-2 disabled:opacity-35 disabled:cursor-not-allowed"
-                            >
-                                {adding ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
-                                {selectedTimes.length === 0
-                                    ? 'Sélectionne des heures'
-                                    : `Ouvrir ${selectedTimes.length} créneau${selectedTimes.length > 1 ? 'x' : ''}`}
-                            </button>
-                        </section>
-                    </div>
-
-                    {/* Liste des créneaux */}
-                    <section
-                        className="animate-fade-up rounded-2xl border border-line bg-surface/80 overflow-hidden"
-                        style={{ animationDelay: '460ms' }}
-                    >
-                        <div className="p-5 sm:p-6 border-b border-line flex flex-wrap items-center justify-between gap-3">
-                            <h2 className="font-display text-xl">Planning</h2>
-                            <div className="flex rounded-full bg-ink p-1 border border-line text-sm">
-                                {([
-                                    ['all', 'Tous', slots.length],
-                                    ['booked', 'Réservés', slots.filter(s => s.isBooked).length],
-                                    ['free', 'Libres', slots.filter(s => !s.isBooked).length],
-                                ] as const).map(([key, label, count]) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => setFilter(key)}
-                                        className={`px-3 sm:px-4 py-1.5 rounded-full transition-all ${filter === key ? 'bg-surface-2 text-cream shadow' : 'text-muted hover:text-cream'}`}
-                                    >
-                                        {label} <span className="text-muted/70 tabular-nums">{count}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {loading && slots.length === 0 ? (
-                            <div className="p-6 space-y-3">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                    <div key={i} className="skeleton animate-shimmer h-16 rounded-xl" />
-                                ))}
-                            </div>
-                        ) : groups.length === 0 ? (
-                            <div className="p-12 text-center">
-                                <Clock size={28} className="mx-auto text-muted mb-3" />
-                                <p className="font-medium">Rien à afficher</p>
-                                <p className="text-sm text-muted mt-1">Ouvre des créneaux pour que tes clients puissent réserver.</p>
-                            </div>
-                        ) : (
-                            <div key={filter} className="divide-y divide-line">
-                                {groups.map(({ day, slots: daySlots }, gi) => (
-                                    <div key={day.toISOString()} className="animate-fade-in" style={{ animationDelay: `${gi * 50}ms` }}>
-                                        <div className="px-5 sm:px-6 py-3 bg-ink/40 flex items-center justify-between text-sm">
-                                            <span className="font-medium first-letter:uppercase">{dayLabel(day)}</span>
-                                            <span className="text-muted">
-                                                {daySlots.filter(s => s.isBooked).length}/{daySlots.length} réservé{daySlots.length > 1 ? 's' : ''}
+                <div className="grid lg:grid-cols-[1fr_1.15fr] gap-8 items-start">
+                    <div className="space-y-8 lg:sticky lg:top-24">
+                        {/* Prochain client : un ticket de passage */}
+                        <Reveal>
+                            <section className="notched bg-ticket px-6 py-6 shadow-[0_12px_30px_-14px_rgba(28,43,74,.45)]">
+                                <p className="text-xs font-bold uppercase tracking-[0.3em] text-red">Prochain client</p>
+                                {nextBooking ? (
+                                    <>
+                                        <div className="flex items-start justify-between gap-4 mt-3">
+                                            <div>
+                                                <p className="font-slab text-3xl">{nextBooking.clientName}</p>
+                                                <p className="font-bold mt-1 first-letter:uppercase">
+                                                    {dayLabel(new Date(nextBooking.startTime))} · {format(new Date(nextBooking.startTime), 'HH:mm')}
+                                                </p>
+                                            </div>
+                                            <span className="shrink-0 text-xs font-bold px-2 py-0.5 border-2 border-navy">
+                                                {formatDistanceToNow(new Date(nextBooking.startTime), { addSuffix: true, locale: fr })}
                                             </span>
                                         </div>
-                                        <ul>
-                                            {daySlots.map(slot => {
-                                                const past = new Date(slot.startTime) <= now;
-                                                const armed = armedDelete === slot.id;
-                                                return (
-                                                    <li
-                                                        key={slot.id}
-                                                        className={`group flex items-center gap-4 px-5 sm:px-6 py-4 hover:bg-surface-2/50 transition-colors ${past ? 'opacity-45' : ''}`}
-                                                    >
-                                                        <span className="font-display text-lg tabular-nums w-14 shrink-0">
-                                                            {format(new Date(slot.startTime), 'HH:mm')}
-                                                        </span>
-                                                        <span className={`size-2 rounded-full shrink-0 ${slot.isBooked ? 'bg-sage' : 'bg-line'}`} />
-                                                        <div className="flex-1 min-w-0">
-                                                            {slot.isBooked ? (
-                                                                <>
-                                                                    <p className="font-medium flex items-center gap-2 truncate">
-                                                                        <UserRound size={14} className="text-muted shrink-0" />
-                                                                        {slot.clientName}
-                                                                    </p>
-                                                                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted">
-                                                                        {slot.clientPhone && (
-                                                                            <a href={`tel:${slot.clientPhone}`} className="flex items-center gap-1.5 py-2 -my-2 hover:text-brass transition">
-                                                                                <Phone size={13} /> {slot.clientPhone}
-                                                                            </a>
-                                                                        )}
-                                                                        {slot.clientEmail && (
-                                                                            <a href={`mailto:${slot.clientEmail}`} className="flex items-center gap-1.5 py-2 -my-2 hover:text-brass transition truncate">
-                                                                                <Mail size={13} /> {slot.clientEmail}
-                                                                            </a>
-                                                                        )}
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <p className="text-muted text-sm">{past ? 'Non réservé' : 'Disponible'}</p>
-                                                            )}
-                                                        </div>
-                                                        <button
-                                                            onClick={() => handleDeleteSlot(slot)}
-                                                            aria-label="Supprimer"
-                                                            className={`shrink-0 flex items-center gap-1.5 rounded-full text-sm transition-all ${armed
-                                                                ? 'bg-rust text-ink px-3 py-1.5 font-medium'
-                                                                : 'p-2 text-muted sm:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-rust hover:bg-rust/10'
-                                                                }`}
-                                                        >
-                                                            <Trash2 size={16} />
-                                                            {armed && (slot.isBooked ? 'Annuler le RDV ?' : 'Confirmer')}
-                                                        </button>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    </div>
-                                ))}
+                                        <div className="my-4 border-t-2 border-dashed border-navy/40" />
+                                        <div className="flex flex-wrap gap-2">
+                                            {nextBooking.clientPhone && (
+                                                <a
+                                                    href={`tel:${nextBooking.clientPhone}`}
+                                                    className="press flex items-center gap-2 bg-red text-paper text-sm font-bold px-4 py-2.5 shadow-[3px_3px_0_#1c2b4a]"
+                                                >
+                                                    <Phone size={15} /> {nextBooking.clientPhone}
+                                                </a>
+                                            )}
+                                            {nextBooking.clientEmail && (
+                                                <a href={`mailto:${nextBooking.clientEmail}`} className="card-hard press flex items-center gap-2 text-sm font-bold px-4 py-2">
+                                                    <Mail size={15} /> Email
+                                                </a>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <p className="mt-3">Aucune réservation à venir pour l&apos;instant.</p>
+                                )}
+                            </section>
+                        </Reveal>
+
+                        {/* Ajouter des créneaux */}
+                        <Reveal delay={100}>
+                            <section className="card-hard p-6">
+                                <h2 className="font-slab text-2xl flex items-center gap-2">
+                                    <Plus size={22} className="text-red" /> Ouvrir des créneaux
+                                </h2>
+                                <p className="text-sm mt-1">Choisis un jour, puis toutes les heures à ouvrir.</p>
+
+                                <input
+                                    type="date"
+                                    value={newDate}
+                                    min={format(now, 'yyyy-MM-dd')}
+                                    onChange={e => { setNewDate(e.target.value); setSelectedTimes([]); }}
+                                    aria-label="Jour"
+                                    className="mt-5 w-full bg-ticket border-2 border-navy px-4 py-3 text-base outline-none focus:shadow-[4px_4px_0_#b3261e] transition-shadow"
+                                />
+                                {newDate && (
+                                    <p className="text-sm font-bold mt-2 first-letter:uppercase">
+                                        {format(new Date(`${newDate}T12:00`), 'EEEE d MMMM', { locale: fr })}
+                                    </p>
+                                )}
+
+                                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-4">
+                                    {[...PRESET_TIMES, ...customTimes].map(time => {
+                                        const taken = takenTimes.has(time);
+                                        const past = isPastTime(time);
+                                        const selected = selectedTimes.includes(time);
+                                        return (
+                                            <button
+                                                key={time}
+                                                type="button"
+                                                onClick={() => toggleTime(time)}
+                                                disabled={taken || past}
+                                                title={taken ? 'Déjà ouvert' : past ? 'Heure passée' : undefined}
+                                                className={`relative py-2 text-sm font-bold tabular-nums border-2 transition-all duration-150 active:scale-95 ${selected
+                                                    ? 'bg-navy text-paper border-navy'
+                                                    : taken
+                                                        ? 'border-ok/40 text-ok bg-ok/5'
+                                                        : 'border-navy/30 hover:border-navy bg-ticket'
+                                                    } disabled:cursor-not-allowed ${past && !taken ? 'opacity-25' : ''}`}
+                                            >
+                                                {time}
+                                                {taken && <Check size={11} className="absolute top-0.5 right-0.5" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className="flex gap-2 mt-3">
+                                    <input
+                                        type="time"
+                                        value={customTime}
+                                        onChange={e => setCustomTime(e.target.value)}
+                                        className="flex-1 bg-ticket border-2 border-navy/30 px-3 py-2 text-base sm:text-sm outline-none focus:border-navy transition"
+                                        aria-label="Autre heure"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={addCustomTime}
+                                        disabled={!customTime || takenTimes.has(customTime) || isPastTime(customTime)}
+                                        className="border-2 border-navy/30 px-3 text-sm font-bold hover:border-navy transition disabled:opacity-30"
+                                    >
+                                        Autre heure
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={handleAddSlots}
+                                    disabled={selectedTimes.length === 0 || adding}
+                                    className="press font-slab mt-5 w-full py-3 text-lg bg-red text-paper shadow-[4px_4px_0_#1c2b4a] flex items-center justify-center gap-2 disabled:opacity-40 disabled:shadow-none"
+                                >
+                                    {adding ? <Loader2 className="animate-spin" size={18} /> : <Plus size={18} />}
+                                    {selectedTimes.length === 0
+                                        ? 'Sélectionne des heures'
+                                        : `Ouvrir ${selectedTimes.length} créneau${selectedTimes.length > 1 ? 'x' : ''}`}
+                                </button>
+                            </section>
+                        </Reveal>
+                    </div>
+
+                    {/* Planning */}
+                    <Reveal delay={150}>
+                        <section className="card-hard overflow-hidden">
+                            <div className="p-5 sm:p-6 border-b-2 border-navy flex flex-wrap items-center justify-between gap-3">
+                                <h2 className="font-slab text-2xl">Planning</h2>
+                                <div className="flex border-2 border-navy text-sm font-bold">
+                                    {([
+                                        ['all', 'Tous', slots.length],
+                                        ['booked', 'Réservés', slots.filter(s => s.isBooked).length],
+                                        ['free', 'Libres', slots.filter(s => !s.isBooked).length],
+                                    ] as const).map(([key, label, count]) => (
+                                        <button
+                                            key={key}
+                                            onClick={() => setFilter(key)}
+                                            className={`px-3 sm:px-4 py-1.5 transition-colors ${filter === key ? 'bg-navy text-paper' : 'hover:bg-navy/10'}`}
+                                        >
+                                            {label} <span className="opacity-70 tabular-nums">{count}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        )}
-                    </section>
+
+                            {loading && slots.length === 0 ? (
+                                <div className="p-6 space-y-3">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <div key={i} className="skeleton animate-shimmer h-16" />
+                                    ))}
+                                </div>
+                            ) : groups.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <Clock size={28} className="mx-auto mb-3" />
+                                    <p className="font-bold">Rien à afficher</p>
+                                    <p className="text-sm mt-1">Ouvre des créneaux pour que tes clients puissent réserver.</p>
+                                </div>
+                            ) : (
+                                <div key={filter}>
+                                    {groups.map(({ day, slots: daySlots }, gi) => (
+                                        <div key={day.toISOString()} className="anim-dispense" style={{ animationDelay: `${gi * 60}ms` }}>
+                                            <div className="px-5 sm:px-6 py-2.5 bg-navy text-paper flex items-center justify-between text-sm">
+                                                <span className="font-bold first-letter:uppercase">{dayLabel(day)}</span>
+                                                <span>
+                                                    {daySlots.filter(s => s.isBooked).length}/{daySlots.length} réservé{daySlots.length > 1 ? 's' : ''}
+                                                </span>
+                                            </div>
+                                            <ul className="divide-y-2 divide-dashed divide-navy/15">
+                                                {daySlots.map(slot => {
+                                                    const past = new Date(slot.startTime) <= now;
+                                                    const armed = armedDelete === slot.id;
+                                                    return (
+                                                        <li
+                                                            key={slot.id}
+                                                            className={`group flex items-center gap-4 px-5 sm:px-6 py-4 hover:bg-ticket transition-colors ${past ? 'opacity-45' : ''}`}
+                                                        >
+                                                            <span className="font-slab text-xl tabular-nums w-16 shrink-0">
+                                                                {format(new Date(slot.startTime), 'HH:mm')}
+                                                            </span>
+                                                            <span className={`size-2.5 rounded-full shrink-0 ${slot.isBooked ? 'bg-red' : 'border-2 border-navy/30'}`} />
+                                                            <div className="flex-1 min-w-0">
+                                                                {slot.isBooked ? (
+                                                                    <>
+                                                                        <p className="font-bold flex items-center gap-2 truncate">
+                                                                            <UserRound size={14} className="shrink-0" />
+                                                                            {slot.clientName}
+                                                                        </p>
+                                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm">
+                                                                            {slot.clientPhone && (
+                                                                                <a href={`tel:${slot.clientPhone}`} className="flex items-center gap-1.5 py-2 -my-2 hover:text-red transition">
+                                                                                    <Phone size={13} /> {slot.clientPhone}
+                                                                                </a>
+                                                                            )}
+                                                                            {slot.clientEmail && (
+                                                                                <a href={`mailto:${slot.clientEmail}`} className="flex items-center gap-1.5 py-2 -my-2 hover:text-red transition truncate">
+                                                                                    <Mail size={13} /> {slot.clientEmail}
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <p className="text-sm">{past ? 'Non réservé' : 'Disponible'}</p>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => handleDeleteSlot(slot)}
+                                                                aria-label="Supprimer"
+                                                                className={`shrink-0 flex items-center gap-1.5 text-sm transition-all ${armed
+                                                                    ? 'bg-red text-paper px-3 py-1.5 font-bold'
+                                                                    : 'p-2 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-red hover:bg-red/10'
+                                                                    }`}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                                {armed && (slot.isBooked ? 'Annuler le RDV ?' : 'Confirmer')}
+                                                            </button>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    </Reveal>
                 </div>
             </main>
             {toasts}
