@@ -6,7 +6,7 @@ import { addDays, addWeeks, format, isSameDay, isToday, isTomorrow, startOfDay }
 import { fr } from 'date-fns/locale';
 import { ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Lock, Ticket } from 'lucide-react';
 import { BarberPole, Reveal, SERVICES, SHOP_NAME, useToasts } from './components/ui';
-import { warp } from './components/Starfield';
+import { warp } from './components/TicketRain';
 import {
   InstallButton, getPushSubscription, pushErrorMessage, saveBooking, updateSavedBooking, type PushError,
 } from './components/pwa';

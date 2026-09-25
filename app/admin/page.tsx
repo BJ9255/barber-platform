@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { BarberPole, Logo, Reveal, useToasts } from '../components/ui';
 import { generateDemoSlots } from './demo';
-import { warp } from '../components/Starfield';
+import { warp } from '../components/TicketRain';
 import { getExistingPushEndpoint, getPushSubscription, pushErrorMessage, type PushError } from '../components/pwa';
 
 type Slot = {

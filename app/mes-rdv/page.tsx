@@ -6,7 +6,7 @@ import { format, formatDistanceToNow, isToday, isTomorrow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Smartphone, Trash2, X } from 'lucide-react';
 import { BarberPole, Logo, Reveal, SHOP_NAME, useToasts } from '../components/ui';
-import { warp } from '../components/Starfield';
+import { warp } from '../components/TicketRain';
 import {
     getPushSubscription, getSavedBookings, pushErrorMessage, setSavedBookings, updateSavedBooking,
     type PushError, type SavedBooking,

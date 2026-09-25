@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Alfa_Slab_One, Courier_Prime } from "next/font/google";
 import "./globals.css";
-import Starfield from "./components/Starfield";
+import TicketRain from "./components/TicketRain";
 import { ServiceWorkerRegister } from "./components/pwa";
 
 // Direction artistique « Ticket rétro » : titres à gros empattements, texte façon machine à écrire
@@ -48,7 +48,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className={`${slab.variable} ${type.variable} antialiased`}>
         <ServiceWorkerRegister />
-        <Starfield />
+        <TicketRain />
         {children}
       </body>
     </html>
