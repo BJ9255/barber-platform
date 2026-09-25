@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, Share, SquarePlus, X } from 'lucide-react';
 
 // ---------- Détection de la plateforme ----------
@@ -151,10 +152,11 @@ export function InstallButton({ className = '' }: { className?: string }) {
     return (
         <>
             <button onClick={install} className={className}>
-                <Download size={16} />
-                Installer l&apos;app
+                <Download size={16} className="shrink-0" />
+                <span className="whitespace-nowrap">Installer<span className="hidden sm:inline"> l&apos;app</span></span>
             </button>
-            {iosHelp && <IosInstallSheet onClose={() => setIosHelp(false)} />}
+            {/* Rendu dans <body> : l'en-tête flouté (backdrop-filter) emprisonnerait sinon la fenêtre « fixed » */}
+            {iosHelp && createPortal(<IosInstallSheet onClose={() => setIosHelp(false)} />, document.body)}
         </>
     );
 }
