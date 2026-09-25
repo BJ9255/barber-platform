@@ -24,6 +24,9 @@ type Slot = {
 
 type Filter = 'all' | 'booked' | 'free';
 
+// Sur téléphone, on n'ouvre pas le clavier d'office à l'arrivée sur la page
+const canAutoFocus = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
+
 // Heures proposées en un clic lors de l'ajout de créneaux
 const PRESET_TIMES = Array.from({ length: 22 }, (_, i) => {
     const minutes = 9 * 60 + i * 30;
@@ -273,7 +276,7 @@ export default function AdminPage() {
 
     if (checkingSession) {
         return (
-            <div className="min-h-screen grid place-items-center bg-atmosphere">
+            <div className="min-h-dvh grid place-items-center bg-atmosphere">
                 <Loader2 className="animate-spin text-brass" size={28} />
             </div>
         );
@@ -281,7 +284,7 @@ export default function AdminPage() {
 
     if (!isAuthenticated) {
         return (
-            <div className="min-h-screen bg-atmosphere flex flex-col items-center justify-center p-4">
+            <div className="min-h-dvh bg-atmosphere flex flex-col items-center justify-center p-4">
                 <form
                     onSubmit={handleLogin}
                     className="animate-scale-in w-full max-w-sm rounded-3xl border border-line bg-surface/90 backdrop-blur p-8 shadow-2xl shadow-black/50"
@@ -299,7 +302,8 @@ export default function AdminPage() {
                             onChange={e => setPassword(e.target.value)}
                             placeholder="Mot de passe"
                             autoComplete="current-password"
-                            autoFocus
+                            autoFocus={canAutoFocus}
+                            enterKeyHint="go"
                             className={`w-full bg-ink border rounded-xl px-4 pr-12 py-3 outline-none transition focus:ring-4 ${loginError
                                 ? 'border-rust focus:ring-rust/15'
                                 : 'border-line focus:border-brass focus:ring-brass/15'
@@ -309,7 +313,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setShowPassword(v => !v)}
                             aria-label={showPassword ? 'Masquer' : 'Afficher'}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-muted hover:text-cream transition"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 text-muted hover:text-cream transition"
                         >
                             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
@@ -338,7 +342,7 @@ export default function AdminPage() {
                     </button>
                     <p className="text-xs text-muted/70 text-center mt-2">Données fictives, rien n&apos;est enregistré.</p>
                 </form>
-                <Link href="/" className="mt-6 flex items-center gap-2 text-sm text-muted hover:text-cream transition">
+                <Link href="/" className="mt-4 py-2 flex items-center gap-2 text-sm text-muted hover:text-cream transition">
                     <ArrowLeft size={15} /> Retour au site
                 </Link>
                 {toasts}
@@ -373,7 +377,7 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="min-h-screen bg-atmosphere">
+        <div className="min-h-dvh bg-atmosphere">
             <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
                     <Logo />
@@ -381,14 +385,16 @@ export default function AdminPage() {
                         <a
                             href="/"
                             target="_blank"
-                            className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+                            aria-label="Voir le site"
+                            className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
                         >
                             <ExternalLink size={15} />
                             <span className="hidden sm:inline">Voir le site</span>
                         </a>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+                            aria-label={demo ? 'Quitter la démo' : 'Déconnexion'}
+                            className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
                         >
                             <LogOut size={15} />
                             <span className="hidden sm:inline">{demo ? 'Quitter la démo' : 'Déconnexion'}</span>
@@ -558,7 +564,7 @@ export default function AdminPage() {
                                     type="time"
                                     value={customTime}
                                     onChange={e => setCustomTime(e.target.value)}
-                                    className="flex-1 bg-ink border border-line rounded-lg px-3 py-2 text-sm outline-none focus:border-brass transition"
+                                    className="flex-1 bg-ink border border-line rounded-lg px-3 py-2 text-base sm:text-sm outline-none focus:border-brass transition"
                                     aria-label="Autre heure"
                                 />
                                 <button
@@ -652,12 +658,12 @@ export default function AdminPage() {
                                                                     </p>
                                                                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-muted">
                                                                         {slot.clientPhone && (
-                                                                            <a href={`tel:${slot.clientPhone}`} className="flex items-center gap-1.5 hover:text-brass transition">
+                                                                            <a href={`tel:${slot.clientPhone}`} className="flex items-center gap-1.5 py-2 -my-2 hover:text-brass transition">
                                                                                 <Phone size={13} /> {slot.clientPhone}
                                                                             </a>
                                                                         )}
                                                                         {slot.clientEmail && (
-                                                                            <a href={`mailto:${slot.clientEmail}`} className="flex items-center gap-1.5 hover:text-brass transition truncate">
+                                                                            <a href={`mailto:${slot.clientEmail}`} className="flex items-center gap-1.5 py-2 -my-2 hover:text-brass transition truncate">
                                                                                 <Mail size={13} /> {slot.clientEmail}
                                                                             </a>
                                                                         )}

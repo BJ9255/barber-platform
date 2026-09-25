@@ -13,6 +13,8 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
   style: ["normal", "italic"],
+  // Seul le poids normal sert aux titres : des fichiers plus légers, donc un titre affiché plus vite sur mobile
+  weight: "400",
 });
 
 export const metadata: Metadata = {

@@ -195,7 +195,7 @@ export default function BookingPage() {
   const sheetOpen = !!(selectedSlot || bookedSlot);
 
   return (
-    <div className="min-h-screen bg-atmosphere overflow-x-clip">
+    <div className="min-h-dvh bg-atmosphere overflow-x-clip">
       {/* Navigation */}
       <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -204,7 +204,8 @@ export default function BookingPage() {
             <InstallButton className="flex items-center gap-2 text-sm rounded-full border border-brass/40 text-brass-light px-3 py-1.5 hover:bg-brass/10 transition" />
             <Link
               href="/mes-rdv"
-              className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+              aria-label="Mes rendez-vous"
+              className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
             >
               <Ticket size={15} />
               <span className="hidden sm:inline">Mes RDV</span>
@@ -212,7 +213,7 @@ export default function BookingPage() {
             <Link
               href="/admin"
               aria-label="Espace coiffeur"
-              className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+              className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
             >
               <Lock size={14} />
               <span className="hidden sm:inline">Espace coiffeur</span>
@@ -228,8 +229,7 @@ export default function BookingPage() {
             Coupe · Dégradé · Barbe
           </p>
           <h1
-            className="animate-fade-up font-display text-5xl sm:text-7xl leading-[1.02] tracking-tight"
-            style={{ animationDelay: '80ms' }}
+            className="animate-rise font-display text-5xl sm:text-7xl leading-[1.02] tracking-tight"
           >
             La coupe,<br />
             <em className="text-brass-light">sans l&apos;attente.</em>
@@ -408,7 +408,7 @@ export default function BookingPage() {
       <footer className="border-t border-line">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row gap-4 items-center justify-between text-sm text-muted">
           <span>© {new Date().getFullYear()} {SHOP_NAME}</span>
-          <Link href="/admin" className="hover:text-cream transition-colors">Espace coiffeur</Link>
+          <Link href="/admin" className="py-2 hover:text-cream transition-colors">Espace coiffeur</Link>
         </div>
       </footer>
 
@@ -419,7 +419,7 @@ export default function BookingPage() {
           <div
             role="dialog"
             aria-modal="true"
-            className="safe-bottom animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto"
+            className="safe-bottom animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain"
           >
             <button
               onClick={closeSheet}
@@ -452,6 +452,8 @@ export default function BookingPage() {
                 <div className="mt-8 grid grid-cols-2 gap-2 text-sm">
                   <a
                     href={`/api/calendar/${bookedSlot.id}`}
+                    target="_blank"
+                    rel="noopener"
                     className="flex items-center justify-center gap-2 rounded-xl border border-line py-3 hover:border-brass transition"
                   >
                     <CalendarPlus size={16} className="text-brass" /> Calendrier
@@ -496,7 +498,8 @@ export default function BookingPage() {
                       placeholder="Thomas"
                       autoComplete="given-name"
                       maxLength={100}
-                      autoFocus
+                      autoFocus={canAutoFocus}
+                      enterKeyHint="next"
                       required
                       className={inputClass}
                     />
@@ -508,6 +511,7 @@ export default function BookingPage() {
                       onChange={e => setClientPhone(e.target.value)}
                       placeholder="06 12 34 56 78"
                       autoComplete="tel"
+                      enterKeyHint="next"
                       required
                       className={inputClass}
                     />
@@ -519,6 +523,7 @@ export default function BookingPage() {
                       onChange={e => setClientEmail(e.target.value)}
                       placeholder="thomas@mail.com"
                       autoComplete="email"
+                      enterKeyHint="done"
                       className={inputClass}
                     />
                   </Field>
@@ -546,6 +551,9 @@ export default function BookingPage() {
     </div>
   );
 }
+
+// Sur téléphone, on n'ouvre pas le clavier d'office : il cacherait le récapitulatif du créneau
+const canAutoFocus = typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
 
 const inputClass =
   'w-full bg-ink border border-line rounded-xl pl-11 pr-4 py-3 text-cream placeholder:text-muted/50 outline-none transition focus:border-brass focus:ring-4 focus:ring-brass/15';
@@ -629,7 +637,7 @@ function UpcomingCard({
         )}
       </div>
 
-      <a href="#reserver" className="mt-4 block text-center text-sm text-muted hover:text-cream transition">
+      <a href="#reserver" className="mt-2 block py-2 text-center text-sm text-muted hover:text-cream transition">
         Voir tout le planning
       </a>
     </div>

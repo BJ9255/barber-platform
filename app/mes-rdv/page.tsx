@@ -128,11 +128,11 @@ export default function MyBookingsPage() {
     const past = bookings?.filter(b => b.status === 'past').reverse() ?? [];
 
     return (
-        <div className="min-h-screen bg-atmosphere">
+        <div className="min-h-dvh bg-atmosphere">
             <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                     <Logo />
-                    <Link href="/" className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition">
+                    <Link href="/" className="min-h-10 min-w-10 justify-center flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition">
                         <ArrowLeft size={15} /> Réserver
                     </Link>
                 </div>
@@ -202,6 +202,8 @@ export default function MyBookingsPage() {
                                     <div className="grid grid-cols-2 gap-2 mt-6 text-sm">
                                         <a
                                             href={`/api/calendar/${b.slotId}`}
+                                            target="_blank"
+                                            rel="noopener"
                                             className="flex items-center justify-center gap-2 rounded-xl border border-line bg-ink/40 py-2.5 hover:border-brass transition"
                                         >
                                             <CalendarPlus size={16} className="text-brass" /> Calendrier

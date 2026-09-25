@@ -53,6 +53,7 @@ export default function Starfield() {
             canvas.width = width * dpr;
             canvas.height = height * dpr;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.lineCap = 'round';
             targetCx = width / 2;
             targetCy = height / 2;
 
@@ -64,7 +65,7 @@ export default function Starfield() {
                 cx = targetCx;
                 cy = targetCy;
                 small = width < 640;
-                const count = Math.max(small ? 260 : 160, Math.min(650, Math.round((width * height) / (small ? 1100 : 2600))));
+                const count = Math.max(small ? 220 : 160, Math.min(650, Math.round((width * height) / (small ? 1300 : 2600))));
                 stars = Array.from({ length: count }, () => spawn({ x: 0, y: 0, z: 0, color: '' }, false));
             }
 
@@ -105,7 +106,6 @@ export default function Starfield() {
                 const alpha = Math.min(1, small ? 0.12 + closeness * 1.3 : closeness * closeness * 1.4);
                 ctx.strokeStyle = `rgba(${star.color},${alpha})`;
                 ctx.lineWidth = Math.max(small ? 0.7 : 0.4, closeness * 2.4);
-                ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(px, py);
                 ctx.lineTo(sx, sy);
