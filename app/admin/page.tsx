@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { format, isSameDay, isToday, isTomorrow, formatDistanceToNow } from 'date-fns';
+import { addDays, format, isSameDay, isToday, isTomorrow, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
     Trash2, Plus, Loader2, Phone, Mail, Eye, EyeOff, ArrowLeft, LogOut, ExternalLink,
     RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check, Sparkles, Bell, BellRing,
+    ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { BarberPole, Logo, Reveal, useToasts } from '../components/ui';
 import { generateDemoSlots } from './demo';
@@ -55,7 +56,7 @@ export default function AdminPage() {
     const [armedDelete, setArmedDelete] = useState<string | null>(null);
     const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Ajout de créneaux
+    // Jour affiché dans le planning, et jour où l'on ouvre des créneaux (les deux restent synchronisés)
     const [newDate, setNewDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
     const [customTime, setCustomTime] = useState('');
@@ -364,16 +365,19 @@ export default function AdminPage() {
     const isPastTime = (time: string) => new Date(`${newDate}T${time}`) <= now;
     const customTimes = selectedTimes.filter(t => !PRESET_TIMES.includes(t));
 
-    const filtered = slots.filter(s =>
+    const selectedDay = new Date(`${newDate}T12:00`);
+    const todayKey = format(now, 'yyyy-MM-dd');
+    const changeDay = (key: string) => { setNewDate(key); setSelectedTimes([]); };
+    const shiftDay = (delta: number) => changeDay(format(addDays(selectedDay, delta), 'yyyy-MM-dd'));
+    // Prochain / précédent jour qui a des créneaux, pour sauter les jours vides
+    const dayKeys = [...new Set(slots.map(s => format(new Date(s.startTime), 'yyyy-MM-dd')))].sort();
+    const nextKey = dayKeys.find(k => k > newDate);
+    const prevKey = [...dayKeys].reverse().find(k => k < newDate && k >= todayKey);
+
+    const daySlots = slots.filter(s => isSameDay(new Date(s.startTime), selectedDay));
+    const filtered = daySlots.filter(s =>
         filter === 'booked' ? s.isBooked : filter === 'free' ? !s.isBooked : true
     );
-    const groups: { day: Date; slots: Slot[] }[] = [];
-    for (const slot of filtered) {
-        const d = new Date(slot.startTime);
-        const last = groups[groups.length - 1];
-        if (last && isSameDay(last.day, d)) last.slots.push(slot);
-        else groups.push({ day: d, slots: [slot] });
-    }
 
     return (
         <div className="min-h-dvh">
@@ -507,19 +511,23 @@ export default function AdminPage() {
                                 </h2>
                                 <p className="text-sm mt-1">Choisis un jour, puis toutes les heures à ouvrir.</p>
 
-                                <input
-                                    type="date"
-                                    value={newDate}
-                                    min={format(now, 'yyyy-MM-dd')}
-                                    onChange={e => { setNewDate(e.target.value); setSelectedTimes([]); }}
-                                    aria-label="Jour"
-                                    className="mt-5 w-full bg-ticket border-2 border-navy px-4 py-3 text-base outline-none focus:shadow-[4px_4px_0_#b3261e] transition-shadow"
-                                />
-                                {newDate && (
-                                    <p className="text-sm font-bold mt-2 first-letter:uppercase">
-                                        {format(new Date(`${newDate}T12:00`), 'EEEE d MMMM', { locale: fr })}
-                                    </p>
-                                )}
+                                <div className="mt-5">
+                                    <DayStepper
+                                        day={selectedDay}
+                                        onPrev={() => shiftDay(-1)}
+                                        onNext={() => shiftDay(1)}
+                                        prevDisabled={newDate <= todayKey}
+                                    >
+                                        <input
+                                            type="date"
+                                            value={newDate}
+                                            min={todayKey}
+                                            onChange={e => e.target.value && changeDay(e.target.value)}
+                                            aria-label="Choisir un jour"
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </DayStepper>
+                                </div>
 
                                 <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-5 xl:grid-cols-6 gap-2 mt-4">
                                     {[...PRESET_TIMES, ...customTimes].map(time => {
@@ -582,13 +590,39 @@ export default function AdminPage() {
                     {/* Planning */}
                     <Reveal delay={150}>
                         <section className="card-hard overflow-hidden">
-                            <div className="p-5 sm:p-6 border-b-2 border-navy flex flex-wrap items-center justify-between gap-3">
-                                <h2 className="font-slab text-2xl">Planning</h2>
-                                <div className="flex border-2 border-navy text-sm font-bold">
+                            <div className="p-5 sm:p-6 border-b-2 border-navy space-y-4">
+                                <DayStepper
+                                    day={selectedDay}
+                                    onPrev={() => shiftDay(-1)}
+                                    onNext={() => shiftDay(1)}
+                                    prevDisabled={newDate <= todayKey}
+                                    title="Planning"
+                                />
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold">
+                                    <span className="flex gap-3">
+                                        {prevKey && (
+                                            <button onClick={() => changeDay(prevKey)} className="underline underline-offset-4 hover:text-red py-1">
+                                                ← {format(new Date(`${prevKey}T12:00`), 'EEE d', { locale: fr })}
+                                            </button>
+                                        )}
+                                        {newDate !== todayKey && (
+                                            <button onClick={() => changeDay(todayKey)} className="underline underline-offset-4 hover:text-red py-1">
+                                                Aujourd&apos;hui
+                                            </button>
+                                        )}
+                                        {nextKey && (
+                                            <button onClick={() => changeDay(nextKey)} className="underline underline-offset-4 hover:text-red py-1">
+                                                {format(new Date(`${nextKey}T12:00`), 'EEE d', { locale: fr })} →
+                                            </button>
+                                        )}
+                                    </span>
+                                    <span>{daySlots.filter(s => s.isBooked).length}/{daySlots.length} réservé{daySlots.length > 1 ? 's' : ''}</span>
+                                </div>
+                                <div className="flex border-2 border-navy text-sm font-bold w-full sm:w-auto *:flex-1">
                                     {([
-                                        ['all', 'Tous', slots.length],
-                                        ['booked', 'Réservés', slots.filter(s => s.isBooked).length],
-                                        ['free', 'Libres', slots.filter(s => !s.isBooked).length],
+                                        ['all', 'Tous', daySlots.length],
+                                        ['booked', 'Réservés', daySlots.filter(s => s.isBooked).length],
+                                        ['free', 'Libres', daySlots.filter(s => !s.isBooked).length],
                                     ] as const).map(([key, label, count]) => (
                                         <button
                                             key={key}
@@ -607,24 +641,20 @@ export default function AdminPage() {
                                         <div key={i} className="skeleton animate-shimmer h-16" />
                                     ))}
                                 </div>
-                            ) : groups.length === 0 ? (
-                                <div className="p-12 text-center">
+                            ) : filtered.length === 0 ? (
+                                <div key={newDate} className="anim-pop p-12 text-center">
                                     <Clock size={28} className="mx-auto mb-3" />
-                                    <p className="font-bold">Rien à afficher</p>
-                                    <p className="text-sm mt-1">Ouvre des créneaux pour que tes clients puissent réserver.</p>
+                                    <p className="font-bold">
+                                        {daySlots.length === 0 ? 'Aucun créneau ce jour-là' : filter === 'booked' ? 'Aucune réservation ce jour-là' : 'Plus de place libre ce jour-là'}
+                                    </p>
+                                    <p className="text-sm mt-1">
+                                        {nextKey ? 'Utilise les flèches pour passer au jour suivant.' : 'Ouvre des créneaux pour que tes clients puissent réserver.'}
+                                    </p>
                                 </div>
                             ) : (
-                                <div key={filter}>
-                                    {groups.map(({ day, slots: daySlots }, gi) => (
-                                        <div key={day.toISOString()} className="anim-dispense" style={{ animationDelay: `${gi * 60}ms` }}>
-                                            <div className="px-5 sm:px-6 py-2.5 bg-navy text-paper flex items-center justify-between text-sm">
-                                                <span className="font-bold first-letter:uppercase">{dayLabel(day)}</span>
-                                                <span>
-                                                    {daySlots.filter(s => s.isBooked).length}/{daySlots.length} réservé{daySlots.length > 1 ? 's' : ''}
-                                                </span>
-                                            </div>
+                                <div key={`${newDate}-${filter}`} className="anim-dispense">
                                             <ul className="divide-y-2 divide-dashed divide-navy/15">
-                                                {daySlots.map(slot => {
+                                                {filtered.map(slot => {
                                                     const past = new Date(slot.startTime) <= now;
                                                     const armed = armedDelete === slot.id;
                                                     return (
@@ -675,8 +705,6 @@ export default function AdminPage() {
                                                     );
                                                 })}
                                             </ul>
-                                        </div>
-                                    ))}
                                 </div>
                             )}
                         </section>
@@ -684,6 +712,33 @@ export default function AdminPage() {
                 </div>
             </main>
             {toasts}
+        </div>
+    );
+}
+
+// Sélecteur de jour : flèches pour passer au jour précédent / suivant, appui sur la date pour choisir dans le calendrier
+function DayStepper({ day, onPrev, onNext, prevDisabled, title, children }: {
+    day: Date; onPrev: () => void; onNext: () => void; prevDisabled?: boolean; title?: string; children?: React.ReactNode;
+}) {
+    const arrow = 'press size-12 shrink-0 grid place-items-center border-2 border-navy bg-ticket shadow-[3px_3px_0_#1c2b4a] disabled:opacity-30 disabled:shadow-none';
+    return (
+        <div className="flex items-center gap-3">
+            <button type="button" onClick={onPrev} disabled={prevDisabled} aria-label="Jour précédent" className={arrow}>
+                <ChevronLeft size={22} />
+            </button>
+            <div className="relative flex-1 min-w-0 text-center">
+                {title && <p className="text-xs font-bold uppercase tracking-[0.25em] text-red">{title}</p>}
+                <p key={day.toDateString()} className="anim-pop font-slab text-xl sm:text-2xl leading-tight first-letter:uppercase truncate">
+                    {dayLabel(day)}
+                </p>
+                {(isToday(day) || isTomorrow(day)) && (
+                    <p className="text-xs capitalize">{format(day, 'EEEE d MMMM', { locale: fr })}</p>
+                )}
+                {children}
+            </div>
+            <button type="button" onClick={onNext} aria-label="Jour suivant" className={arrow}>
+                <ChevronRight size={22} />
+            </button>
         </div>
     );
 }

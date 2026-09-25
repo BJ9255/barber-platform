@@ -130,7 +130,7 @@ const subscribe = (listener: () => void) => {
 };
 
 // 'android' : invitation native disponible · 'ios' : il faut passer par « Partager » · null : déjà installée ou impossible
-function useInstallMode() {
+export function useInstallMode() {
     const canPrompt = useSyncExternalStore(subscribe, () => deferredPrompt !== null, () => false);
     const ios = useSyncExternalStore(subscribe, () => isIOS() && !isStandalone(), () => false);
     return canPrompt ? 'android' : ios ? 'ios' : null;

@@ -104,6 +104,7 @@ export default function TicketRain() {
 
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         let width = 0, height = 0, dpr = 1;
+        let small = false; // téléphone : moins de tickets et plus pâles, pour que le contenu reste lisible
         let tickets: Ticket[] = [];
         let sprites: HTMLCanvasElement[] = [];
         let raf = 0;
@@ -150,10 +151,10 @@ export default function TicketRain() {
             if (width !== ticketsWidth) {
                 ticketsWidth = width;
                 buildSprites();
-                const count = Math.max(18, Math.min(46, Math.round((width * height) / 26000)));
+                small = width < 640;
+                const count = small ? 12 : Math.max(18, Math.min(46, Math.round((width * height) / 26000)));
                 tickets = Array.from({ length: count }, () => spawn({} as Ticket, true));
             }
-            if (reduceMotion) draw(0);
         };
 
         const draw = (dt: number) => {
@@ -165,7 +166,8 @@ export default function TicketRain() {
             py += (targetPy - py) * Math.min(1, dt / 500);
             const shift = scrollShift;
             scrollShift = 0;
-            const speed = 1 + boost;
+            // « Réduire les animations » : les tickets dérivent lentement, sans tourner ni virevolter
+            const speed = reduceMotion ? 0.35 : 1 + boost;
 
             // Du plus loin au plus proche, pour que les tickets proches passent devant
             tickets.sort((a, b) => a.depth - b.depth);
@@ -173,8 +175,10 @@ export default function TicketRain() {
                 t.y += FALL_SPEED * t.depth * speed * dt - shift * t.depth * 0.35;
                 t.x += wind * t.depth * dt;
                 t.angle += t.spin * speed * dt;
-                t.flip += t.flipSpeed * Math.min(4, speed) * dt;
-                t.sway += t.swaySpeed * dt;
+                if (!reduceMotion) {
+                    t.flip += t.flipSpeed * Math.min(4, speed) * dt;
+                    t.sway += t.swaySpeed * dt;
+                }
 
                 const margin = TICKET_W;
                 if (t.y > height + margin) { spawn(t, false); continue; }
@@ -188,7 +192,7 @@ export default function TicketRain() {
                 const turn = Math.cos(t.flip); // le ticket vu de face (1) puis par la tranche (0)
 
                 ctx.save();
-                ctx.globalAlpha = 0.18 + s * s * 0.5;
+                ctx.globalAlpha = small ? 0.1 + s * s * 0.3 : 0.18 + s * s * 0.5;
                 ctx.translate(x, y);
                 ctx.rotate(t.angle + Math.sin(t.sway) * 0.35);
                 ctx.scale(s, s * Math.max(0.08, Math.abs(turn)));
@@ -230,10 +234,10 @@ export default function TicketRain() {
         resize();
         window.addEventListener('resize', resize);
         // La police machine à écrire arrive parfois après le premier dessin : on refait les tickets
-        document.fonts?.ready.then(() => { buildSprites(); if (reduceMotion) draw(0); });
+        document.fonts?.ready.then(buildSprites);
 
+        raf = requestAnimationFrame(loop);
         if (!reduceMotion) {
-            raf = requestAnimationFrame(loop);
             window.addEventListener('warp', onWarp);
             window.addEventListener('scroll', onScroll, { passive: true });
             window.addEventListener('pointermove', onPointer, { passive: true });
