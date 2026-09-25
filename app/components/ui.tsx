@@ -10,7 +10,7 @@ export const SERVICES = 'Coupe · Dégradé · Barbe';
 // Poteau de barbier : rayures rouge / blanc / bleu qui tournent en continu.
 // Le motif est répété deux fois dans la tuile, ce qui rend le raccord invisible pendant la rotation.
 export function BarberPole({ size = 'md', light = false }: { size?: 'sm' | 'md' | 'lg'; light?: boolean }) {
-    const dims = { sm: 'w-2 h-7', md: 'w-3.5 h-20', lg: 'w-3.5 h-20 lg:w-5 lg:h-36' }[size];
+    const dims = { sm: 'w-2 h-7', md: 'w-3.5 h-20', lg: 'w-3 h-16 lg:w-5 lg:h-36' }[size];
     return (
         <div
             aria-hidden

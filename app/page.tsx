@@ -56,15 +56,6 @@ export default function BookingPage() {
   const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
 
   const [compact, setCompact] = useState(false);
-  // Ordinateur : l'enseigne est sur fond bleu marine, les poteaux prennent un contour clair
-  const [desktop, setDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const update = () => setDesktop(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
   const signRef = useRef<HTMLElement>(null);
   const { notify, toasts } = useToasts();
 
@@ -216,27 +207,27 @@ export default function BookingPage() {
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <header
           ref={signRef}
-          className="safe-top relative px-5 pb-2 text-center lg:bg-navy lg:text-paper lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
+          className="safe-top relative px-5 pb-4 text-center bg-navy text-paper border-b-4 border-red lg:border-b-0 lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
         >
           {/* Téléphone : raccourcis au-dessus de l'enseigne */}
-          <nav className="lg:hidden flex items-center justify-end gap-1 pt-3 -mr-2 max-w-md mx-auto text-sm">
-            <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 mr-1 border-2 border-navy font-bold" />
-            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-3 py-2 min-h-10 font-bold hover:text-red transition">
+          <nav className="lg:hidden flex items-center justify-end gap-1 pt-1 -mr-2 max-w-md mx-auto text-sm">
+            <InstallButton className="press flex items-center gap-1.5 px-3 py-1 mr-1 border-2 border-paper font-bold hover:bg-paper hover:text-navy" />
+            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-3 py-2 min-h-10 font-bold hover:text-gold transition">
               <Ticket size={16} /> Mes RDV
             </Link>
-            <Link href="/admin" aria-label="Espace coiffeur" className="grid place-items-center size-10 hover:text-red transition">
+            <Link href="/admin" aria-label="Espace coiffeur" className="grid place-items-center size-10 hover:text-gold transition">
               <Lock size={16} />
             </Link>
           </nav>
 
-          <div className="anim-swing flex items-center justify-center gap-3 lg:gap-8 mt-1 lg:mt-0">
-            <BarberPole size="lg" light={desktop} />
+          <div className="anim-swing flex items-center justify-center gap-3 lg:gap-8 lg:mt-0">
+            <BarberPole size="lg" light />
             <div>
-              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-red lg:text-gold">Barbier · sur rendez-vous</p>
-              <h1 className="font-slab text-[36px] lg:text-[48px] xl:text-[62px] leading-none mt-1 lg:mt-3">{SHOP_NAME}</h1>
-              <p className="text-sm lg:text-lg mt-2 lg:mt-4">{SERVICES}</p>
+              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-gold">Barbier · sur rendez-vous</p>
+              <h1 className="font-slab text-[32px] lg:text-[48px] xl:text-[62px] leading-none mt-1 lg:mt-3">{SHOP_NAME}</h1>
+              <p className="text-xs lg:text-lg mt-1.5 lg:mt-4">{SERVICES}</p>
             </div>
-            <BarberPole size="lg" light={desktop} />
+            <BarberPole size="lg" light />
           </div>
 
           <div className="hidden lg:block mt-14 text-left">
@@ -249,7 +240,7 @@ export default function BookingPage() {
           </div>
         </header>
 
-        <div className="px-5 pt-4 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
+        <div className="px-5 pt-6 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
           <main className="max-w-md mx-auto lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:border-2 lg:border-navy lg:bg-paper-2 lg:shadow-[8px_8px_0_#1c2b4a]">
             {/* Suivi du parcours : les 3 étapes sont nommées, l'étape en cours est en rouge */}
             <ol className="grid grid-cols-3 gap-1.5 text-xs font-bold uppercase tracking-[0.12em]">
