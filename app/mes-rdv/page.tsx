@@ -147,7 +147,7 @@ export default function MyBookingsPage() {
                 </div>
             </header>
 
-            <main className="max-w-xl mx-auto px-5 py-10 pb-24">
+            <main id="contenu" className="max-w-xl mx-auto px-5 py-10 pb-24">
                 <div className="anim-swing flex items-center gap-4">
                     <BarberPole light />
                     <div>

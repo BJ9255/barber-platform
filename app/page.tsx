@@ -67,7 +67,7 @@ export default function BookingPage() {
       setLeaving(null);
       setEntering(dir === 'forward' ? 'right' : 'left');
       window.scrollTo({ top: 0 });
-    }, 220);
+    }, 160);
   };
   useEffect(() => {
     try {
@@ -171,9 +171,13 @@ export default function BookingPage() {
     navigate(() => setStep(next), ORDER.indexOf(next) >= ORDER.indexOf(step) ? 'forward' : 'back', strength);
   };
 
+  // Premier affichage : les heures arrivent après le titre et les jours. Ensuite, changer de jour
+  // les fait apparaître tout de suite (le délai d'entrée donnerait une impression de lenteur).
+  const [dayChanged, setDayChanged] = useState(false);
   const chooseDay = (d: Date) => {
     setDay(d);
     setSlot(null);
+    setDayChanged(true);
   };
 
   const handleBook = async (e: React.FormEvent) => {
@@ -315,7 +319,7 @@ export default function BookingPage() {
                 className="press group flex items-center gap-3 font-slab text-lg"
               >
                 Réserver
-                <span className="size-14 grid place-items-center rounded-full bg-red text-paper shadow-[3px_3px_0_rgba(0,0,0,.45)]">
+                <span className="size-14 grid place-items-center rounded-full bg-red text-paper shadow-[3px_3px_0_rgba(4,8,20,.7)]">
                   <ArrowRight size={24} className="nudge-x" />
                 </span>
               </button>
@@ -349,7 +353,7 @@ export default function BookingPage() {
                   </nav>
                 </div>
               </header>
-        <main className={`px-4 pt-8 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'}`}>
+        <main id="contenu" className={`px-4 pt-8 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'}`}>
           <div className="max-w-md mx-auto lg:max-w-xl lg:mx-0">
             {step === 'choose' && (
               <div key={intro ? 'choose-hidden' : 'choose'} className={pageAnim}>
@@ -375,7 +379,7 @@ export default function BookingPage() {
                               onClick={() => chooseDay(d)}
                               disabled={!free}
                               aria-pressed={!!selected}
-                              className={`snap-start shrink-0 w-[62px] py-2 flex flex-col items-center border-2 transition-colors disabled:opacity-30 ${selected
+                              className={`tap snap-start shrink-0 w-[62px] py-2 flex flex-col items-center border-2 disabled:opacity-30 ${selected
                                 ? 'bg-ticket border-ticket text-navy'
                                 : 'border-paper/25 hover:border-paper/60'
                                 }`}
@@ -407,8 +411,8 @@ export default function BookingPage() {
                               key={s.id}
                               onClick={() => { setSlot(selected ? null : s); setFormError(''); }}
                               aria-pressed={selected}
-                              className={`notched anim-dispense py-3 font-slab text-2xl transition-colors ${selected ? 'bg-red text-paper' : 'bg-ticket hover:bg-gold'}`}
-                              style={{ animationDelay: `${440 + i * 45}ms` }}
+                              className={`tap notched anim-dispense py-3 font-slab text-2xl tabular-nums ${selected ? 'bg-red text-paper' : 'bg-ticket hover:bg-gold'}`}
+                              style={{ animationDelay: `${(dayChanged ? 0 : 440) + i * (dayChanged ? 25 : 45)}ms` }}
                             >
                               {format(new Date(s.startTime), 'HH:mm')}
                             </button>
@@ -465,7 +469,7 @@ export default function BookingPage() {
                 {formError && <p key={formError} className="animate-shake text-sm font-bold text-gold">{formError}</p>}
                 <button
                   disabled={!clientName.trim() || !clientPhone.trim() || submitting}
-                  className="press font-slab w-full py-4 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)] flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="press font-slab w-full py-4 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(4,8,20,.7)] flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {submitting && <Loader2 size={20} className="animate-spin" />}
                   Confirmer ma réservation
@@ -476,12 +480,12 @@ export default function BookingPage() {
 
             {step === 'done' && booked && (
               <div key="done" className={pageAnim}>
-                <h2 className="font-slab text-4xl text-center">C&apos;est réservé !</h2>
+                <h2 className="font-slab text-4xl text-center">C&apos;est réservé.</h2>
                 <p className="text-center text-sm mt-2 opacity-85">À bientôt chez {SHOP_NAME}.</p>
                 {/* Fente du distributeur, d'où sort le ticket */}
                 <div className="mt-6 mx-2 h-3 rounded-full bg-black/40" />
                 <div className="relative -mt-1.5 mx-4">
-                  <div className="notched anim-print px-6 py-7 bg-ticket shadow-[0_12px_30px_-12px_rgba(0,0,0,.6)]">
+                  <div className="notched anim-print px-6 py-7 bg-ticket shadow-[0_12px_30px_-12px_rgba(4,8,20,.8)]">
                     <p className="text-center text-xs font-bold uppercase tracking-[0.35em] text-red">Ticket de passage</p>
                     <p className="font-slab text-center text-6xl mt-3">{format(new Date(booked.slot.startTime), 'HH:mm')}</p>
                     <p className="text-center text-lg font-bold capitalize mt-1">{format(new Date(booked.slot.startTime), 'EEEE d MMMM', { locale: fr })}</p>
@@ -566,7 +570,7 @@ function ContinueBar({ slot, onContinue }: { slot: Slot; onContinue: () => void 
       </div>
       <button
         onClick={onContinue}
-        className="press font-slab shrink-0 flex items-center gap-2 px-6 py-3.5 text-lg bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)]"
+        className="press font-slab shrink-0 flex items-center gap-2 px-6 py-3.5 text-lg bg-red text-paper shadow-[4px_4px_0_rgba(4,8,20,.7)]"
       >
         Continuer <ArrowRight size={20} />
       </button>

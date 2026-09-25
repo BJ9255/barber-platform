@@ -21,11 +21,19 @@ export const metadata: Metadata = {
   title: "Lagrobarber · Prendre rendez-vous",
   description: "Réserve ta coupe en quelques secondes, confirmation immédiate.",
   applicationName: "Lagrobarber",
+  // Aperçu quand le lien est partagé (messagerie, réseaux, CV en ligne)
+  openGraph: {
+    title: "Lagrobarber · Prendre rendez-vous",
+    description: "Réserve ta coupe en quelques secondes : choisis un jour, une heure, c'est confirmé.",
+    type: "website",
+    locale: "fr_FR",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Lagrobarber" }],
+  },
   // Réglages propres à l'iPhone quand l'app est lancée depuis l'écran d'accueil
   appleWebApp: {
     capable: true,
     title: "Lagrobarber",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
@@ -47,6 +55,10 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={`${slab.variable} ${type.variable} antialiased`}>
+        {/* Clavier : lien caché qui apparaît au premier Tab pour sauter directement au contenu */}
+        <a href="#contenu" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[70] focus:px-4 focus:py-2 focus:bg-gold focus:text-navy focus:font-bold">
+          Aller au contenu
+        </a>
         <ServiceWorkerRegister />
         <TicketRain />
         {children}

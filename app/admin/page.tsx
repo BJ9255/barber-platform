@@ -424,7 +424,7 @@ export default function AdminPage() {
                 )}
             </header>
 
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-28 lg:py-14">
+            <main id="contenu" className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-28 lg:py-14">
                 <div className="flex flex-wrap items-end justify-between gap-4 mb-6 lg:mb-10">
                     <div className="anim-swing flex items-center gap-4">
                         <BarberPole light />
