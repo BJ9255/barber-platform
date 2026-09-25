@@ -108,3 +108,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* App installée en plein écran : on laisse la place à l'encoche et à la barre d'accueil de l'iPhone */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}

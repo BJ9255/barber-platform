@@ -51,7 +51,7 @@ export function useToasts() {
     }, []);
 
     const node = (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 w-[calc(100%-2rem)] max-w-sm pointer-events-none">
+        <div style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }} className="fixed left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 w-[calc(100%-2rem)] max-w-sm pointer-events-none">
             {toasts.map(t => (
                 <div
                     key={t.id}

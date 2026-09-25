@@ -6,11 +6,12 @@ import { format, isSameDay, isToday, isTomorrow, formatDistanceToNow } from 'dat
 import { fr } from 'date-fns/locale';
 import {
     Trash2, Plus, Loader2, Phone, Mail, Eye, EyeOff, ArrowLeft, LogOut, ExternalLink,
-    RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check, Sparkles,
+    RefreshCw, CalendarCheck, CalendarPlus, Sun, UserRound, Clock, Check, Sparkles, Bell, BellRing,
 } from 'lucide-react';
 import { BarberPole, Logo, useToasts } from '../components/ui';
 import { generateDemoSlots } from './demo';
 import { warp } from '../components/Starfield';
+import { getExistingPushEndpoint, getPushSubscription, pushErrorMessage, type PushError } from '../components/pwa';
 
 type Slot = {
     id: string;
@@ -57,7 +58,45 @@ export default function AdminPage() {
     const [customTime, setCustomTime] = useState('');
     const [adding, setAdding] = useState(false);
 
+    // Notifications de réservation sur le téléphone du coiffeur
+    const [pushState, setPushState] = useState<'off' | 'loading' | 'on'>('off');
+
     const { notify, toasts } = useToasts();
+
+    useEffect(() => {
+        getExistingPushEndpoint().then(endpoint => { if (endpoint) setPushState('on'); }).catch(() => {});
+    }, []);
+
+    const togglePush = async () => {
+        if (demo) return notify('Les notifications ne sont pas disponibles en démo', 'error');
+        setPushState('loading');
+        try {
+            if (pushState === 'on') {
+                const endpoint = await getExistingPushEndpoint();
+                const res = await fetch('/api/admin/push', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpoint }),
+                });
+                if (handleUnauthorized(res)) return;
+                setPushState('off');
+                notify('Notifications désactivées sur ce téléphone');
+                return;
+            }
+            const subscription = await getPushSubscription();
+            const res = await fetch('/api/admin/push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription }),
+            });
+            if (handleUnauthorized(res)) return;
+            if (!res.ok) throw new Error();
+            setPushState('on');
+        } catch (error) {
+            setPushState(prev => (prev === 'loading' ? 'off' : prev));
+            notify(pushErrorMessage[error as PushError] ?? "Impossible d'activer les notifications", 'error');
+        }
+    };
 
     // Session expirée pendant l'utilisation : retour à l'écran de connexion
     const handleUnauthorized = useCallback((res: Response) => {
@@ -335,7 +374,7 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-screen bg-atmosphere">
-            <header className="sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
+            <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
                     <Logo />
                     <div className="flex items-center gap-1 sm:gap-2">
@@ -374,13 +413,27 @@ export default function AdminPage() {
                         </p>
                         <h1 className="font-display text-4xl sm:text-5xl mt-2">Tableau de bord</h1>
                     </div>
-                    <button
-                        onClick={fetchSlots}
-                        className="flex items-center gap-2 text-sm text-muted hover:text-cream border border-line hover:border-brass rounded-full px-4 py-2 transition"
-                    >
-                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-                        Actualiser
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={togglePush}
+                            disabled={pushState === 'loading'}
+                            className={`flex items-center gap-2 text-sm border rounded-full px-4 py-2 transition ${pushState === 'on'
+                                ? 'border-sage/40 text-sage hover:border-sage'
+                                : 'border-line text-muted hover:text-cream hover:border-brass'
+                                }`}
+                        >
+                            {pushState === 'loading' ? <Loader2 size={15} className="animate-spin" />
+                                : pushState === 'on' ? <BellRing size={15} /> : <Bell size={15} />}
+                            {pushState === 'on' ? 'Notifications activées' : 'Activer les notifications'}
+                        </button>
+                        <button
+                            onClick={fetchSlots}
+                            className="flex items-center gap-2 text-sm text-muted hover:text-cream border border-line hover:border-brass rounded-full px-4 py-2 transition"
+                        >
+                            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+                            Actualiser
+                        </button>
+                    </div>
                 </div>
 
                 {/* Statistiques */}

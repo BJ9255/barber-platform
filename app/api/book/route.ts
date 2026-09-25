@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { createManageToken } from '@/lib/booking-token';
+import { formatParis, notifyBarber } from '@/lib/push';
 
 const PHONE_REGEX = /^\+?[0-9 .-]{8,20}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,6 +29,7 @@ export async function POST(request: Request) {
 
         // Réservation atomique : la mise à jour ne passe que si le créneau est encore libre
         // et dans le futur, ce qui empêche deux clients de réserver le même créneau.
+        const { token, hash } = createManageToken();
         const { count } = await prisma.slot.updateMany({
             where: { id: slotId, isBooked: false, startTime: { gt: new Date() } },
             data: {
@@ -34,6 +37,7 @@ export async function POST(request: Request) {
                 clientName,
                 clientPhone,
                 clientEmail: clientEmail || null,
+                manageTokenHash: hash,
             },
         });
 
@@ -48,7 +52,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Ce créneau est déjà passé' }, { status: 409 });
         }
 
-        return NextResponse.json({ success: true });
+        // Notification au coiffeur, envoyée après la réponse pour ne pas faire attendre le client
+        after(async () => {
+            const slot = await prisma.slot.findUnique({ where: { id: slotId }, select: { startTime: true } });
+            if (!slot) return;
+            await notifyBarber({
+                title: 'Nouvelle réservation',
+                body: `${clientName} · ${formatParis(slot.startTime, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`,
+                url: '/admin',
+            });
+        });
+
+        // Le code secret n'est renvoyé qu'une fois, au client qui vient de réserver
+        return NextResponse.json({ success: true, token });
     } catch (error) {
         console.error('Error booking slot:', error);
         return NextResponse.json({ error: 'Failed to book slot' }, { status: 500 });

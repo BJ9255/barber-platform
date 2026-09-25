@@ -8,9 +8,13 @@ import {
 import { fr } from 'date-fns/locale';
 import {
   ChevronLeft, ChevronRight, Loader2, ArrowRight, CalendarDays, Clock, UserRound, Phone, Mail, X, Scissors, Lock,
+  CalendarPlus, Bell, BellRing, Ticket,
 } from 'lucide-react';
 import { Logo, SHOP_NAME, useToasts } from './components/ui';
 import { warp } from './components/Starfield';
+import {
+  InstallButton, getPushSubscription, pushErrorMessage, saveBooking, updateSavedBooking, type PushError,
+} from './components/pwa';
 
 type Slot = {
   id: string;
@@ -32,6 +36,8 @@ export default function BookingPage() {
 
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [bookedSlot, setBookedSlot] = useState<Slot | null>(null);
+  const [bookedToken, setBookedToken] = useState<string | null>(null);
+  const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -109,7 +115,29 @@ export default function BookingPage() {
     if (submitting) return;
     setSelectedSlot(null);
     setBookedSlot(null);
+    setBookedToken(null);
+    setReminder('idle');
     setFormError('');
+  };
+
+  // Rappel par notification le jour du RDV
+  const enableReminder = async () => {
+    if (!bookedToken) return;
+    setReminder('loading');
+    try {
+      const subscription = await getPushSubscription();
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription, token: bookedToken }),
+      });
+      if (!res.ok) throw new Error();
+      updateSavedBooking(bookedToken, { reminder: true });
+      setReminder('on');
+    } catch (error) {
+      setReminder('idle');
+      notify(pushErrorMessage[error as PushError] ?? "Impossible d'activer le rappel", 'error');
+    }
   };
 
   const handleBookSlot = async (e: React.FormEvent) => {
@@ -126,7 +154,11 @@ export default function BookingPage() {
       });
 
       if (res.ok) {
+        const { token } = await res.json();
+        // Le code secret reste sur ce téléphone : il sert à retrouver et annuler le RDV
+        saveBooking({ token, slotId: selectedSlot.id, startTime: selectedSlot.startTime });
         warp(1.2);
+        setBookedToken(token);
         setBookedSlot(selectedSlot);
         setClientName('');
         setClientPhone('');
@@ -165,16 +197,27 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen bg-atmosphere overflow-x-clip">
       {/* Navigation */}
-      <header className="sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
+      <header className="safe-top sticky top-0 z-40 border-b border-line/60 bg-ink/75 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Logo />
-          <Link
-            href="/admin"
-            className="flex items-center gap-2 text-sm text-muted hover:text-cream transition-colors"
-          >
-            <Lock size={14} />
-            <span className="hidden sm:inline">Espace coiffeur</span>
-          </Link>
+          <nav className="flex items-center gap-1 sm:gap-2">
+            <InstallButton className="flex items-center gap-2 text-sm rounded-full border border-brass/40 text-brass-light px-3 py-1.5 hover:bg-brass/10 transition" />
+            <Link
+              href="/mes-rdv"
+              className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+            >
+              <Ticket size={15} />
+              <span className="hidden sm:inline">Mes RDV</span>
+            </Link>
+            <Link
+              href="/admin"
+              aria-label="Espace coiffeur"
+              className="flex items-center gap-2 text-sm text-muted hover:text-cream px-3 py-2 rounded-full hover:bg-surface-2 transition"
+            >
+              <Lock size={14} />
+              <span className="hidden sm:inline">Espace coiffeur</span>
+            </Link>
+          </nav>
         </div>
       </header>
 
@@ -376,7 +419,7 @@ export default function BookingPage() {
           <div
             role="dialog"
             aria-modal="true"
-            className="animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto"
+            className="safe-bottom animate-sheet-up relative w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] overflow-y-auto"
           >
             <button
               onClick={closeSheet}
@@ -406,12 +449,33 @@ export default function BookingPage() {
                 <p className="text-lg font-medium mt-1 first-letter:uppercase">
                   {format(new Date(bookedSlot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
                 </p>
+                <div className="mt-8 grid grid-cols-2 gap-2 text-sm">
+                  <a
+                    href={`/api/calendar/${bookedSlot.id}`}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-line py-3 hover:border-brass transition"
+                  >
+                    <CalendarPlus size={16} className="text-brass" /> Calendrier
+                  </a>
+                  <button
+                    onClick={enableReminder}
+                    disabled={reminder !== 'idle' || !bookedToken}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-line py-3 hover:border-brass transition disabled:hover:border-line"
+                  >
+                    {reminder === 'loading' ? <Loader2 size={16} className="animate-spin" />
+                      : reminder === 'on' ? <BellRing size={16} className="text-sage" />
+                        : <Bell size={16} className="text-brass" />}
+                    {reminder === 'on' ? 'Rappel activé' : 'Me rappeler'}
+                  </button>
+                </div>
                 <button
                   onClick={closeSheet}
-                  className="mt-8 w-full rounded-full bg-brass text-ink font-semibold py-3.5 hover:bg-brass-light transition"
+                  className="mt-3 w-full rounded-full bg-brass text-ink font-semibold py-3.5 hover:bg-brass-light transition"
                 >
                   Parfait
                 </button>
+                <Link href="/mes-rdv" className="mt-4 inline-block text-sm text-muted hover:text-cream transition">
+                  Retrouver ou annuler dans <span className="text-brass">Mes RDV</span>
+                </Link>
               </div>
             ) : selectedSlot && (
               <form onSubmit={handleBookSlot} className="p-6 sm:p-8">

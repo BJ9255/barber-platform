@@ -6,17 +6,36 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("POSTGRES_URL") // using direct connection as pooling vars are missing
+  provider = "postgresql"
+  url      = env("POSTGRES_URL") // using direct connection as pooling vars are missing
 }
 
 model Slot {
-  id          String   @id @default(cuid())
-  startTime   DateTime
-  isBooked    Boolean  @default(false)
-  clientName  String?
-  clientPhone String?
-  clientEmail String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String             @id @default(cuid())
+  startTime         DateTime
+  isBooked          Boolean            @default(false)
+  clientName        String?
+  clientPhone       String?
+  clientEmail       String?
+  // Empreinte SHA-256 du code secret remis au client pour gérer son RDV (le code lui-même n'est jamais stocké)
+  manageTokenHash   String?            @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  pushSubscriptions PushSubscription[]
+}
+
+// Abonnement aux notifications d'un téléphone : le coiffeur (role "admin")
+// ou un client qui veut un rappel pour un RDV précis (role "client" + slotId)
+model PushSubscription {
+  id         String    @id @default(cuid())
+  endpoint   String
+  p256dh     String
+  auth       String
+  role       String
+  slotId     String?
+  slot       Slot?     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  remindedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@unique([endpoint, role, slotId])
 }

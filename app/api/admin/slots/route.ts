@@ -15,6 +15,7 @@ export async function GET() {
         const slots = await prisma.slot.findMany({
             where: { startTime: { gte: todayStart } },
             orderBy: { startTime: 'asc' },
+            select: { id: true, startTime: true, isBooked: true, clientName: true, clientPhone: true, clientEmail: true },
         });
         return NextResponse.json(slots);
     } catch (error) {
