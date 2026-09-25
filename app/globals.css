@@ -78,6 +78,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
 }
 
+/* Encoches seulement sur ordinateur (les horaires restent de simples cases sur téléphone) */
+@media (min-width: 1024px) {
+  .lg\:notched {
+    -webkit-mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  }
+}
+
 /* Carte encadrée à ombre dure, comme un panneau imprimé */
 .card-hard {
   background: var(--color-paper-2);

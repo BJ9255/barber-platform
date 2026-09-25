@@ -152,7 +152,7 @@ export default function TicketRain() {
                 ticketsWidth = width;
                 buildSprites();
                 small = width < 640;
-                const count = small ? 12 : Math.max(18, Math.min(46, Math.round((width * height) / 26000)));
+                const count = small ? 7 : Math.max(18, Math.min(46, Math.round((width * height) / 26000)));
                 tickets = Array.from({ length: count }, () => spawn({} as Ticket, true));
             }
         };
@@ -192,7 +192,7 @@ export default function TicketRain() {
                 const turn = Math.cos(t.flip); // le ticket vu de face (1) puis par la tranche (0)
 
                 ctx.save();
-                ctx.globalAlpha = small ? 0.1 + s * s * 0.3 : 0.18 + s * s * 0.5;
+                ctx.globalAlpha = small ? 0.08 + s * s * 0.2 : 0.18 + s * s * 0.5;
                 ctx.translate(x, y);
                 ctx.rotate(t.angle + Math.sin(t.sway) * 0.35);
                 ctx.scale(s, s * Math.max(0.08, Math.abs(turn)));

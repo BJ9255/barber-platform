@@ -56,6 +56,15 @@ export default function BookingPage() {
   const [reminder, setReminder] = useState<'idle' | 'loading' | 'on'>('idle');
 
   const [compact, setCompact] = useState(false);
+  // Ordinateur : l'enseigne est sur fond bleu marine, les poteaux prennent un contour clair
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const signRef = useRef<HTMLElement>(null);
   const { notify, toasts } = useToasts();
 
@@ -207,27 +216,27 @@ export default function BookingPage() {
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <header
           ref={signRef}
-          className="safe-top relative px-5 pb-8 text-center bg-navy text-paper border-b-4 border-red lg:border-b-0 lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
+          className="safe-top relative px-5 pb-2 text-center lg:bg-navy lg:text-paper lg:sticky lg:top-0 lg:h-dvh lg:flex lg:flex-col lg:justify-center lg:px-14 xl:px-20 lg:py-12"
         >
           {/* Téléphone : raccourcis au-dessus de l'enseigne */}
           <nav className="lg:hidden flex items-center justify-end gap-1 pt-3 -mr-2 max-w-md mx-auto text-sm">
-            <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 mr-1 border-2 border-paper font-bold hover:bg-paper hover:text-navy" />
-            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-3 py-2 min-h-10 font-bold hover:text-gold transition">
+            <InstallButton className="press flex items-center gap-1.5 px-3 py-1.5 mr-1 border-2 border-navy font-bold" />
+            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-3 py-2 min-h-10 font-bold hover:text-red transition">
               <Ticket size={16} /> Mes RDV
             </Link>
-            <Link href="/admin" aria-label="Espace coiffeur" className="grid place-items-center size-10 hover:text-gold transition">
+            <Link href="/admin" aria-label="Espace coiffeur" className="grid place-items-center size-10 hover:text-red transition">
               <Lock size={16} />
             </Link>
           </nav>
 
-          <div className="anim-swing flex items-center justify-center gap-4 lg:gap-8 mt-4 lg:mt-0">
-            <BarberPole size="lg" light />
+          <div className="anim-swing flex items-center justify-center gap-3 lg:gap-8 mt-1 lg:mt-0">
+            <BarberPole size="lg" light={desktop} />
             <div>
-              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-gold">Barbier · sur rendez-vous</p>
-              <h1 className="font-slab text-[42px] lg:text-[48px] xl:text-[62px] leading-none mt-1 lg:mt-3">{SHOP_NAME}</h1>
+              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-red lg:text-gold">Barbier · sur rendez-vous</p>
+              <h1 className="font-slab text-[36px] lg:text-[48px] xl:text-[62px] leading-none mt-1 lg:mt-3">{SHOP_NAME}</h1>
               <p className="text-sm lg:text-lg mt-2 lg:mt-4">{SERVICES}</p>
             </div>
-            <BarberPole size="lg" light />
+            <BarberPole size="lg" light={desktop} />
           </div>
 
           <div className="hidden lg:block mt-14 text-left">
@@ -240,8 +249,8 @@ export default function BookingPage() {
           </div>
         </header>
 
-        <div className="px-4 pt-6 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
-          <main className="max-w-md mx-auto px-5 py-6 border-2 border-navy bg-paper-2 shadow-[6px_6px_0_#1c2b4a] lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:shadow-[8px_8px_0_#1c2b4a]">
+        <div className="px-5 pt-4 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
+          <main className="max-w-md mx-auto lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:border-2 lg:border-navy lg:bg-paper-2 lg:shadow-[8px_8px_0_#1c2b4a]">
             {/* Suivi du parcours : les 3 étapes sont nommées, l'étape en cours est en rouge */}
             <ol className="grid grid-cols-3 gap-1.5 text-xs font-bold uppercase tracking-[0.12em]">
               {TRACKER.map((label, i) => {
@@ -294,7 +303,7 @@ export default function BookingPage() {
                         return (
                           <li key={d.toISOString()}>
                             <Reveal delay={i * 80}>
-                              <div className="card-hard">
+                              <div className="bg-paper-2 border-2 border-navy/15 lg:border-navy lg:shadow-[4px_4px_0_#1c2b4a]">
                                 <button
                                   onClick={() => { setDay(d); goTo(1); }}
                                   className="w-full flex items-center gap-3 px-4 pt-3 pb-2 text-left hover:text-red transition-colors"
@@ -314,7 +323,7 @@ export default function BookingPage() {
                                     <button
                                       key={s.id}
                                       onClick={() => pickDirect(s)}
-                                      className="notched press anim-dispense py-2 bg-navy text-paper font-slab text-xl"
+                                      className="press anim-dispense py-1.5 border-2 border-navy bg-ticket font-slab text-lg lg:py-2 lg:text-xl hover:bg-navy hover:text-paper transition-colors lg:notched lg:border-0 lg:bg-navy lg:text-paper"
                                       style={{ animationDelay: `${150 + i * 80 + j * 50}ms` }}
                                     >
                                       {format(new Date(s.startTime), 'HH:mm')}
@@ -487,8 +496,8 @@ export default function BookingPage() {
 
           {/* Téléphone : « Comment ça se passe » sous le choix du jour, qui apparaît au défilement */}
           {step === 0 && (
-            <section className="max-w-md mx-auto mt-12 px-1 lg:hidden">
-              <HowItWorks />
+            <section className="max-w-md mx-auto mt-12 lg:hidden">
+              <HowItWorks plain />
             </section>
           )}
         </div>
@@ -526,7 +535,30 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
 }
 
 // Les 3 étapes, en tickets qui apparaissent au défilement
-function HowItWorks({ onDark = false }: { onDark?: boolean }) {
+function HowItWorks({ onDark = false, plain = false }: { onDark?: boolean; plain?: boolean }) {
+  // Téléphone : une simple liste numérotée, sans blocs, pour alléger la page
+  if (plain) {
+    return (
+      <>
+        <Reveal><h2 className="font-slab text-2xl">Comment ça se passe</h2></Reveal>
+        <ol className="mt-3 divide-y-2 divide-dashed divide-navy/15">
+          {HOW_IT_WORKS.map(([title, text], i) => (
+            <li key={title}>
+              <Reveal delay={i * 100}>
+                <div className="flex gap-4 items-start py-4">
+                  <span className="font-slab text-3xl leading-none text-red w-6">{i + 1}</span>
+                  <span>
+                    <span className="block font-bold">{title}</span>
+                    <span className="block text-sm text-muted mt-0.5">{text}</span>
+                  </span>
+                </div>
+              </Reveal>
+            </li>
+          ))}
+        </ol>
+      </>
+    );
+  }
   return (
     <>
       <Reveal><h2 className="font-slab text-3xl">Comment ça se passe</h2></Reveal>
