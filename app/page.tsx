@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, addWeeks, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ArrowLeft, ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Sparkles, Ticket } from 'lucide-react';
@@ -74,9 +74,60 @@ export default function BookingPage() {
       if (sessionStorage.getItem('lagrobarber-intro')) setIntro(false);
     } catch { /* stockage indisponible : on affiche l'accueil */ }
   }, []);
-  const leaveIntro = () => {
-    try { sessionStorage.setItem('lagrobarber-intro', '1'); } catch { /* ignoré */ }
-    navigate(() => setIntro(false), 'forward', 0.8);
+  // Les deux pages sont côte à côte sur un rail : on fait glisser le rail (transition CSS sur transform,
+  // interruptible). Pas de transition au premier affichage, seulement quand on change de page.
+  const trackRef = useRef<HTMLDivElement>(null);
+  // Sur ordinateur les deux « pages » sont visibles côte à côte : rien n'est masqué
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023.98px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  const [sliding, setSliding] = useState(false);
+  const showPage = (booking: boolean) => {
+    if (booking) {
+      try { sessionStorage.setItem('lagrobarber-intro', '1'); } catch { /* ignoré */ }
+      warp(0.8);
+    }
+    setSliding(true);
+    setIntro(!booking);
+    window.scrollTo({ top: 0 });
+  };
+  const leaveIntro = () => showPage(true);
+
+  // Téléphone : glisser la page d'accueil vers la gauche avec le doigt ouvre la réservation.
+  // Le rail suit le doigt (sans transition), puis se cale sur la bonne page au relâchement.
+  const drag = useRef<{ x: number; y: number; t: number; dx: number; horizontal: boolean | null } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!intro || window.innerWidth >= 1024) return;
+    const t = e.touches[0];
+    drag.current = { x: t.clientX, y: t.clientY, t: performance.now(), dx: 0, horizontal: null };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const d = drag.current;
+    const track = trackRef.current;
+    if (!d || !track) return;
+    const t = e.touches[0];
+    const dx = t.clientX - d.x;
+    const dy = t.clientY - d.y;
+    if (d.horizontal === null && Math.abs(dx) + Math.abs(dy) > 8) d.horizontal = Math.abs(dx) > Math.abs(dy);
+    if (!d.horizontal) return;
+    d.dx = Math.min(0, Math.max(-window.innerWidth, dx));
+    track.style.transition = 'none';
+    track.style.transform = `translateX(${d.dx}px)`;
+  };
+  const onTouchEnd = () => {
+    const d = drag.current;
+    drag.current = null;
+    const track = trackRef.current;
+    if (!d?.horizontal || !track) return;
+    track.style.transition = '';
+    track.style.transform = '';
+    const velocity = -d.dx / (performance.now() - d.t); // px/ms vers la gauche
+    if (-d.dx > window.innerWidth * 0.25 || velocity > 0.5) showPage(true);
   };
 
   const { notify, toasts } = useToasts();
@@ -219,18 +270,6 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-dvh overflow-x-clip flex flex-col">
-      {/* Téléphone : barre fine et fixe, toujours à portée de pouce */}
-      <header className={`safe-top lg:hidden sticky top-0 z-40 bg-navy/95 backdrop-blur border-b-2 border-red ${intro ? 'hidden' : ''}`}>
-        <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between gap-2">
-          <Logo light />
-          <nav className="flex items-center gap-1 text-sm">
-            <InstallButton className="press flex items-center gap-1.5 px-2.5 py-1 border-2 border-paper/60 font-bold" />
-            <Link href="/mes-rdv" className="flex items-center gap-1.5 px-2 py-2 min-h-10 font-bold hover:text-gold transition">
-              <Ticket size={16} /> Mes RDV
-            </Link>
-          </nav>
-        </div>
-      </header>
 
       {demo && (
         <div className="bg-gold text-navy text-sm font-bold">
@@ -242,10 +281,18 @@ export default function BookingPage() {
         </div>
       )}
 
-      {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement */}
-      <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        {/* Téléphone : page d'accueil plein écran. Ordinateur : colonne de gauche fixe */}
-        <aside className={`${intro ? 'flex' : 'hidden'} ${intro && leaving ? 'anim-out-left lg:animate-none' : ''} lg:flex flex-col justify-center min-h-dvh px-6 pad-top-screen pb-10 lg:sticky lg:top-0 lg:h-dvh lg:min-h-0 lg:px-14 xl:px-20 lg:py-12 bg-navy`}>
+      {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement.
+          Téléphone : les deux pages côte à côte sur un rail qui glisse (display: contents sur ordinateur). */}
+      <div className="flex-1 overflow-x-clip lg:overflow-visible lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <div
+          ref={trackRef}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          className={`page-track flex w-[200%] items-start lg:contents ${intro ? '' : 'is-booking'} ${sliding ? 'is-sliding' : ''}`}
+        >
+        {/* Page 1 : accueil plein écran. Ordinateur : colonne de gauche fixe */}
+        <aside aria-hidden={isMobile && !intro ? true : undefined} inert={isMobile && !intro ? true : undefined} className={`w-1/2 shrink-0 flex flex-col justify-center min-h-dvh ${intro ? '' : 'h-dvh overflow-hidden'} px-6 pad-top-screen pb-10 lg:w-auto lg:h-dvh lg:overflow-visible lg:sticky lg:top-0 lg:h-dvh lg:min-h-0 lg:px-14 xl:px-20 lg:py-12 bg-navy`}>
           <div className="anim-swing flex items-center justify-center gap-4 lg:gap-8 text-center">
             <BarberPole size="lg" light />
             <div>
@@ -257,14 +304,22 @@ export default function BookingPage() {
           </div>
           <div className="mt-10 lg:mt-14">
             <HowItWorks onDark />
-            {/* Téléphone : on passe à l'écran de réservation */}
-            <button
-              onClick={leaveIntro}
-              style={{ animationDelay: '500ms' }}
-              className="lg:hidden anim-rise press font-slab mt-8 w-full py-4 flex items-center justify-center gap-3 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)]"
-            >
-              Continuer <ArrowRight size={22} />
-            </button>
+            {/* Téléphone : indicateur de page + petite flèche vers la réservation (on peut aussi glisser) */}
+            <div style={{ animationDelay: '500ms' }} className="lg:hidden anim-rise mt-8 flex items-center justify-between">
+              <span className="flex items-center gap-2" aria-hidden>
+                <span className="h-1.5 w-6 bg-gold" />
+                <span className="h-1.5 w-1.5 bg-paper/35" />
+              </span>
+              <button
+                onClick={leaveIntro}
+                className="press group flex items-center gap-3 font-slab text-lg"
+              >
+                Réserver
+                <span className="size-14 grid place-items-center rounded-full bg-red text-paper shadow-[3px_3px_0_rgba(0,0,0,.45)]">
+                  <ArrowRight size={24} className="nudge-x" />
+                </span>
+              </button>
+            </div>
             <nav className="mt-8 lg:mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 text-sm">
               <Link href="/mes-rdv" className="underline underline-offset-4 hover:text-gold transition">Mes RDV</Link>
               <Link href="/admin" className="underline underline-offset-4 hover:text-gold transition">Espace coiffeur</Link>
@@ -274,10 +329,30 @@ export default function BookingPage() {
           </div>
         </aside>
 
-        <main className={`px-4 pt-8 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'} ${intro ? 'hidden lg:block' : ''}`}>
+        {/* Page 2 : réservation */}
+        <div className={`w-1/2 shrink-0 lg:w-auto ${intro ? 'h-dvh overflow-hidden lg:h-auto lg:overflow-visible' : ''}`} aria-hidden={isMobile && intro ? true : undefined} inert={isMobile && intro ? true : undefined}>
+          {/* Téléphone : barre fine et fixe, toujours à portée de pouce */}
+              <header className={`safe-top lg:hidden sticky top-0 z-40 bg-navy/95 backdrop-blur border-b-2 border-red`}>
+                <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1">
+            {/* Retour à la page d'accueil */}
+            <button onClick={() => showPage(false)} aria-label="Retour à l'accueil" className="press size-10 -ml-2 grid place-items-center hover:text-gold transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <Logo light />
+          </div>
+                  <nav className="flex items-center gap-1 text-sm">
+                        <InstallButton className="press flex items-center gap-1.5 px-2.5 py-1 border-2 border-paper/60 font-bold" />
+                        <Link href="/mes-rdv" className="flex items-center gap-1.5 px-2 py-2 min-h-10 font-bold hover:text-gold transition">
+                          <Ticket size={16} /> Mes RDV
+                        </Link>
+                  </nav>
+                </div>
+              </header>
+        <main className={`px-4 pt-8 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'}`}>
           <div className="max-w-md mx-auto lg:max-w-xl lg:mx-0">
             {step === 'choose' && (
-              <div key="choose" className={pageAnim}>
+              <div key={intro ? 'choose-hidden' : 'choose'} className={pageAnim}>
                 <p className="anim-rise text-xs font-bold uppercase tracking-[0.3em] text-gold" style={{ animationDelay: '80ms' }}>{SERVICES}</p>
                 <h2 className="anim-rise font-slab text-[34px] lg:text-5xl leading-none mt-2" style={{ animationDelay: '140ms' }}>Réserve ta coupe</h2>
                 <p className="anim-rise text-sm mt-3 opacity-85" style={{ animationDelay: '200ms' }}>Choisis un jour, puis une heure. C&apos;est confirmé tout de suite, sans créer de compte.</p>
@@ -451,6 +526,8 @@ export default function BookingPage() {
             )}
           </div>
         </main>
+        </div>
+        </div>
       </div>
 
       {/* Téléphone : le créneau choisi reste collé en bas de l'écran, hors des blocs animés

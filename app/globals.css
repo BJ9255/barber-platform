@@ -157,17 +157,33 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .anim-rise { animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 .anim-pop { animation: pop-in 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 
+/* Téléphone : rail des deux pages (accueil / réservation). Transition sur transform uniquement,
+   courbe « tiroir » iOS : départ vif, arrivée douce. Interruptible car c'est une transition. */
+@media (max-width: 1023.98px) {
+  .page-track { transform: translateX(0); }
+  .page-track.is-booking { transform: translateX(-50%); }
+  .page-track.is-sliding { transition: transform 420ms cubic-bezier(0.32, 0.72, 0, 1); }
+}
+
+/* Petite flèche « Réserver » : deux légers coups de pouce vers la droite, puis elle se tient tranquille */
+@keyframes nudge-x { 0%, 100% { transform: none; } 50% { transform: translateX(4px); } }
+.nudge-x { animation: nudge-x 0.6s cubic-bezier(0.77, 0, 0.175, 1) 1.4s 2; }
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .nudge-x { transform: translateX(3px); transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+}
+
 /* Apparition au défilement : l'élément glisse vers le haut quand il entre dans l'écran */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.8, 0.3, 1); }
 .reveal.is-visible { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .anim-pole, .anim-swing, .anim-from-right, .anim-from-left, .anim-dispense, .anim-print, .anim-stamp, .anim-bar, .anim-pop, .anim-peek, .anim-rise, .anim-out-left, .anim-out-right {
+  .anim-pole, .anim-swing, .anim-from-right, .anim-from-left, .anim-dispense, .anim-print, .anim-stamp, .anim-bar, .anim-pop, .anim-peek, .anim-rise, .anim-out-left, .anim-out-right, .nudge-x {
     animation: none !important;
   }
   .anim-tear { animation-duration: 0.01s !important; }
   .reveal { opacity: 1; transform: none; transition: none; }
+  .page-track.is-sliding { transition-duration: 1ms; }
   *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
 
