@@ -53,6 +53,22 @@ export default function BookingPage() {
 
   // Mode démo (/?demo) : créneaux fictifs, réservation simulée, aucune requête au serveur
   const [demo, setDemo] = useState(false);
+  // Téléphone : une page d'accueil (enseigne + fonctionnement) avant l'écran de réservation.
+  // Vue une fois par visite : en revenant de « Mes RDV », on retombe directement sur la réservation.
+  const [intro, setIntro] = useState(true);
+  const [slideIn, setSlideIn] = useState(false);
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('lagrobarber-intro')) setIntro(false);
+    } catch { /* stockage indisponible : on affiche l'accueil */ }
+  }, []);
+  const leaveIntro = () => {
+    try { sessionStorage.setItem('lagrobarber-intro', '1'); } catch { /* ignoré */ }
+    setIntro(false);
+    setSlideIn(true);
+    warp(0.8);
+    window.scrollTo({ top: 0 });
+  };
 
   const { notify, toasts } = useToasts();
 
@@ -190,7 +206,7 @@ export default function BookingPage() {
   return (
     <div className="min-h-dvh overflow-x-clip flex flex-col">
       {/* Téléphone : barre fine et fixe, toujours à portée de pouce */}
-      <header className="safe-top lg:hidden sticky top-0 z-40 bg-navy/95 backdrop-blur border-b-2 border-red">
+      <header className={`safe-top lg:hidden sticky top-0 z-40 bg-navy/95 backdrop-blur border-b-2 border-red ${intro ? 'hidden' : ''}`}>
         <div className="max-w-md mx-auto px-4 h-14 flex items-center justify-between gap-2">
           <Logo light />
           <nav className="flex items-center gap-1 text-sm">
@@ -214,19 +230,27 @@ export default function BookingPage() {
 
       {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement */}
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        <aside className="hidden lg:flex lg:flex-col lg:justify-center lg:sticky lg:top-0 lg:h-dvh lg:px-14 xl:px-20 lg:py-12 bg-navy">
-          <div className="anim-swing flex items-center justify-center gap-8 text-center">
+        {/* Téléphone : page d'accueil plein écran. Ordinateur : colonne de gauche fixe */}
+        <aside className={`${intro ? 'flex' : 'hidden'} lg:flex flex-col justify-center safe-top min-h-dvh px-6 py-10 lg:sticky lg:top-0 lg:h-dvh lg:min-h-0 lg:px-14 xl:px-20 lg:py-12 bg-navy`}>
+          <div className="anim-swing flex items-center justify-center gap-4 lg:gap-8 text-center">
             <BarberPole size="lg" light />
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.3em] text-gold">Barbier · sur rendez-vous</p>
-              <h1 className="font-slab text-[48px] xl:text-[62px] leading-none mt-3">{SHOP_NAME}</h1>
-              <p className="text-lg mt-4">{SERVICES}</p>
+              <p className="text-xs lg:text-sm font-bold uppercase tracking-[0.3em] text-gold">Barbier · sur rendez-vous</p>
+              <h1 className="font-slab text-[38px] sm:text-[48px] xl:text-[62px] leading-none mt-2 lg:mt-3">{SHOP_NAME}</h1>
+              <p className="text-sm lg:text-lg mt-2 lg:mt-4">{SERVICES}</p>
             </div>
             <BarberPole size="lg" light />
           </div>
-          <div className="mt-14">
+          <div className="mt-10 lg:mt-14">
             <HowItWorks onDark />
-            <nav className="mt-10 flex flex-wrap items-center gap-6 text-sm">
+            {/* Téléphone : on passe à l'écran de réservation */}
+            <button
+              onClick={leaveIntro}
+              className="lg:hidden press font-slab mt-8 w-full py-4 flex items-center justify-center gap-3 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)]"
+            >
+              Continuer <ArrowRight size={22} />
+            </button>
+            <nav className="mt-8 lg:mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-3 text-sm">
               <Link href="/mes-rdv" className="underline underline-offset-4 hover:text-gold transition">Mes RDV</Link>
               <Link href="/admin" className="underline underline-offset-4 hover:text-gold transition">Espace coiffeur</Link>
               <Link href="/demo" className="underline underline-offset-4 hover:text-gold transition">Démo</Link>
@@ -235,7 +259,7 @@ export default function BookingPage() {
           </div>
         </aside>
 
-        <main className={`px-4 pt-7 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'}`}>
+        <main className={`px-4 pt-7 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'} ${intro ? 'hidden lg:block' : ''} ${slideIn ? 'anim-from-right lg:animate-none' : ''}`}>
           <div className="max-w-md mx-auto lg:max-w-xl lg:mx-0">
             {step === 'choose' && (
               <div key="choose" className="anim-pop">
@@ -308,10 +332,6 @@ export default function BookingPage() {
                   </>
                 )}
 
-                {/* Téléphone : rappel du fonctionnement sous la réservation */}
-                <section className="mt-14 lg:hidden">
-                  <HowItWorks plain />
-                </section>
               </div>
             )}
 
@@ -428,7 +448,7 @@ export default function BookingPage() {
         </div>
       )}
 
-      <footer className="lg:hidden safe-bottom px-5 py-8 text-sm bg-navy">
+      <footer className={`lg:hidden safe-bottom px-5 py-8 text-sm bg-navy ${intro ? 'hidden' : ''}`}>
         <div className="max-w-md mx-auto flex items-center justify-between">
           <span className="font-slab text-lg">{SHOP_NAME}</span>
           <span className="flex gap-4">
@@ -488,30 +508,8 @@ function Field({ label, hint, required, children }: { label: string; hint?: stri
   );
 }
 
-// Les 3 étapes : en tickets sur ordinateur, en simple liste numérotée sur téléphone
-function HowItWorks({ onDark = false, plain = false }: { onDark?: boolean; plain?: boolean }) {
-  if (plain) {
-    return (
-      <>
-        <Reveal><h2 className="font-slab text-2xl">Comment ça se passe</h2></Reveal>
-        <ol className="mt-3 divide-y-2 divide-dashed divide-paper/15">
-          {HOW_IT_WORKS.map(([title, text], i) => (
-            <li key={title}>
-              <Reveal delay={i * 100}>
-                <div className="flex gap-4 items-start py-4">
-                  <span className="font-slab text-3xl leading-none text-gold w-6">{i + 1}</span>
-                  <span>
-                    <span className="block font-bold">{title}</span>
-                    <span className="block text-sm opacity-70 mt-0.5">{text}</span>
-                  </span>
-                </div>
-              </Reveal>
-            </li>
-          ))}
-        </ol>
-      </>
-    );
-  }
+// Les 3 étapes, en tickets qui apparaissent au défilement
+function HowItWorks({ onDark = false }: { onDark?: boolean }) {
   return (
     <>
       <Reveal><h2 className="font-slab text-3xl">Comment ça se passe</h2></Reveal>
