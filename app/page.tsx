@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { addDays, addWeeks, format, isSameDay, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ArrowRight, Bell, BellRing, CalendarPlus, Loader2, Lock, Ticket } from 'lucide-react';
+import { ArrowRight, Bell, BellRing, CalendarPlus, Check, Loader2, Lock, Ticket } from 'lucide-react';
 import { BarberPole, Reveal, SERVICES, SHOP_NAME, useToasts } from './components/ui';
 import { warp } from './components/TicketRain';
 import {
@@ -28,11 +28,14 @@ const toDateParam = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dayWord = (d: Date) => (isToday(d) ? "Aujourd'hui" : isTomorrow(d) ? 'Demain' : format(d, 'EEEE', { locale: fr }));
 
-const STEP_TITLES = ['Quel jour ?', 'À quelle heure ?', 'À quel nom ?'];
+const STEP_TITLES = ['Choisis ton créneau', 'Choisis ton heure', 'Plus qu’une étape'];
+// Le parcours vu par le client : choisir le jour et l'heure ne compte que pour une étape
+const TRACKER = ['Créneau', 'Tes infos', 'Réservé'];
+const trackerIndex = (step: number) => (step <= 1 ? 0 : step - 1);
 const HOW_IT_WORKS = [
-  ['Choisis ton jour', 'Les jours avec des places libres sont indiqués.'],
-  ['Prends ton ticket', 'Un appui sur une heure et elle est à toi.'],
-  ['Viens te faire couper', 'Ta réservation est confirmée tout de suite.'],
+  ['Choisis ton créneau', 'Touche une des heures libres affichées.'],
+  ['Donne tes infos', 'Ton prénom et ton téléphone, sans créer de compte.'],
+  ['C’est réservé', 'Ton ticket est confirmé tout de suite, tu le retrouves dans « Mes RDV ».'],
 ];
 
 export default function BookingPage() {
@@ -239,27 +242,39 @@ export default function BookingPage() {
 
         <div className="px-4 pt-6 pb-14 lg:flex lg:items-start lg:justify-center lg:px-12 lg:py-16">
           <main className="max-w-md mx-auto px-5 py-6 border-2 border-navy bg-paper-2 shadow-[6px_6px_0_#1c2b4a] lg:mx-0 lg:w-full lg:max-w-xl lg:p-10 lg:shadow-[8px_8px_0_#1c2b4a]">
-            {step < 3 && (
-              <>
-                <div className="flex items-center justify-between text-sm min-h-6">
-                  {step > 0
-                    ? <button onClick={() => goTo(step - 1)} className="underline underline-offset-4 py-2 -my-2 hover:text-red">← Retour</button>
-                    : <span />}
-                  <span>Étape {step + 1} / 3</span>
-                </div>
-                <div className="flex gap-1.5 mt-3">
-                  {[0, 1, 2].map(i => (
-                    <span key={i} className="h-1.5 flex-1 overflow-hidden bg-line">
-                      <span className="block h-full bg-red transition-transform duration-500 origin-left" style={{ transform: `scaleX(${i <= step ? 1 : 0})` }} />
+            {/* Suivi du parcours : les 3 étapes sont nommées, l'étape en cours est en rouge */}
+            <ol className="grid grid-cols-3 gap-1.5 text-xs font-bold uppercase tracking-[0.12em]">
+              {TRACKER.map((label, i) => {
+                const current = trackerIndex(step);
+                const state = i < current ? 'done' : i === current ? 'now' : 'todo';
+                return (
+                  <li key={label} className={state === 'todo' ? 'text-muted' : state === 'now' ? 'text-red' : ''}>
+                    <span className="h-1.5 block overflow-hidden bg-line">
+                      <span className={`block h-full transition-transform duration-500 origin-left ${state === 'done' ? 'bg-navy' : 'bg-red'}`} style={{ transform: `scaleX(${state === 'todo' ? 0 : 1})` }} />
                     </span>
-                  ))}
-                </div>
-              </>
+                    <span className="flex items-center gap-1 mt-2">
+                      {state === 'done' ? <Check size={13} className="shrink-0" /> : <span className="tabular-nums">{i + 1}.</span>}
+                      {label}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+            {step > 0 && step < 3 && (
+              <button onClick={() => goTo(step - 1)} className="mt-4 text-sm underline underline-offset-4 py-2 -my-2 hover:text-red">
+                ← {step === 1 ? 'Autres jours' : 'Changer de créneau'}
+              </button>
             )}
 
             {/* key = étape : l'écran est recréé, donc son animation d'entrée rejoue */}
             <div key={step} className={enter}>
-              {step < 3 && <h2 className="font-slab text-4xl mt-6">{STEP_TITLES[step]}</h2>}
+              {step < 3 && <h2 className="font-slab text-[34px] leading-none mt-6">{STEP_TITLES[step]}</h2>}
+              {step === 0 && (
+                <p className="mt-3 text-sm">
+                  <strong>Touche une heure</strong> pour la réserver. Pas de compte à créer, c&apos;est confirmé tout de suite.
+                </p>
+              )}
+              {step === 2 && <p className="mt-3 text-sm">Ton prénom et ton téléphone, et le créneau est à toi.</p>}
 
               {step === 0 && (
                 <>
@@ -289,7 +304,10 @@ export default function BookingPage() {
                                     <span className="block text-lg font-bold capitalize leading-tight">{dayWord(d)}</span>
                                     <span className="block text-sm capitalize">{format(d, 'MMMM', { locale: fr })}</span>
                                   </span>
-                                  <span className="text-sm font-bold">{free.length} place{free.length > 1 ? 's' : ''}</span>
+                                  <span className="text-sm font-bold text-right">
+                                    {free.length} place{free.length > 1 ? 's' : ''}
+                                    <span className="block font-normal text-xs text-muted">libre{free.length > 1 ? 's' : ''}</span>
+                                  </span>
                                 </button>
                                 <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-1">
                                   {free.slice(0, TIMES_PER_DAY).map((s, j) => (
@@ -350,7 +368,8 @@ export default function BookingPage() {
 
               {step === 1 && day && (
                 <>
-                  <p className="mt-1 capitalize">{format(day, 'EEEE d MMMM', { locale: fr })}</p>
+                  <p className="mt-2 capitalize font-bold">{format(day, 'EEEE d MMMM', { locale: fr })}</p>
+                  <p className="mt-1 text-sm">Touche une heure pour la réserver.</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
                     {daySlots.map((s, i) => {
                       const free = isFree(s);
@@ -373,7 +392,10 @@ export default function BookingPage() {
 
               {step === 2 && slot && (
                 <form onSubmit={handleBook} className="mt-2 space-y-5">
-                  <p className="capitalize">{format(new Date(slot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}</p>
+                  <p className="notched px-5 py-3 bg-navy text-paper font-bold first-letter:uppercase">
+                    <Ticket size={16} className="inline -mt-1 mr-2 text-gold" />
+                    {format(new Date(slot.startTime), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
+                  </p>
                   <Reveal>
                     <Field label="Prénom" required>
                       <input
