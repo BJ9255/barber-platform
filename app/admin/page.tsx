@@ -294,7 +294,7 @@ export default function AdminPage() {
 
     if (!isAuthenticated) {
         return (
-            <div className="safe-top min-h-dvh flex flex-col items-center justify-center p-5">
+            <div className="pad-top-screen min-h-dvh flex flex-col items-center justify-center px-5 pb-5">
                 <form onSubmit={handleLogin} className="anim-pop card-hard w-full max-w-sm p-8 shadow-[6px_6px_0_#1c2b4a]">
                     <div className="anim-swing flex items-center justify-center gap-4">
                         <BarberPole />

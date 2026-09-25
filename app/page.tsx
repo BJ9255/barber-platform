@@ -56,7 +56,19 @@ export default function BookingPage() {
   // Téléphone : une page d'accueil (enseigne + fonctionnement) avant l'écran de réservation.
   // Vue une fois par visite : en revenant de « Mes RDV », on retombe directement sur la réservation.
   const [intro, setIntro] = useState(true);
-  const [slideIn, setSlideIn] = useState(false);
+  // Transition entre pages : la page actuelle sort (vers la gauche si on avance), puis la suivante entre
+  const [leaving, setLeaving] = useState<'left' | 'right' | null>(null);
+  const [entering, setEntering] = useState<'right' | 'left' | null>(null);
+  const navigate = (change: () => void, dir: 'forward' | 'back', strength = 0.5) => {
+    setLeaving(dir === 'forward' ? 'left' : 'right');
+    warp(strength);
+    setTimeout(() => {
+      change();
+      setLeaving(null);
+      setEntering(dir === 'forward' ? 'right' : 'left');
+      window.scrollTo({ top: 0 });
+    }, 220);
+  };
   useEffect(() => {
     try {
       if (sessionStorage.getItem('lagrobarber-intro')) setIntro(false);
@@ -64,10 +76,7 @@ export default function BookingPage() {
   }, []);
   const leaveIntro = () => {
     try { sessionStorage.setItem('lagrobarber-intro', '1'); } catch { /* ignoré */ }
-    setIntro(false);
-    setSlideIn(true);
-    warp(0.8);
-    window.scrollTo({ top: 0 });
+    navigate(() => setIntro(false), 'forward', 0.8);
   };
 
   const { notify, toasts } = useToasts();
@@ -106,10 +115,9 @@ export default function BookingPage() {
   const activeDay = day ?? firstFreeDay;
   const times = activeDay ? freeOn(activeDay) : [];
 
+  const ORDER: Step[] = ['choose', 'details', 'done'];
   const goTo = (next: Step, strength = 0.5) => {
-    setStep(next);
-    warp(strength);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(() => setStep(next), ORDER.indexOf(next) >= ORDER.indexOf(step) ? 'forward' : 'back', strength);
   };
 
   const chooseDay = (d: Date) => {
@@ -195,11 +203,17 @@ export default function BookingPage() {
   };
 
   const restart = () => {
-    setBooked(null);
-    setSlot(null);
-    setDay(null);
-    goTo('choose');
+    navigate(() => {
+      setBooked(null);
+      setSlot(null);
+      setDay(null);
+      setStep('choose');
+    }, 'back');
   };
+
+  // Animation de la page affichée : sortie en cours, sinon entrée depuis le bon côté
+  const pageAnim = leaving ? (leaving === 'left' ? 'anim-out-left' : 'anim-out-right')
+    : entering === 'left' ? 'anim-from-left' : entering === 'right' ? 'anim-from-right' : 'anim-pop';
 
   const noSlotsAtAll = slots !== undefined && !firstFreeDay;
 
@@ -231,7 +245,7 @@ export default function BookingPage() {
       {/* Ordinateur : deux colonnes, l'enseigne reste fixe à gauche pendant le défilement */}
       <div className="flex-1 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         {/* Téléphone : page d'accueil plein écran. Ordinateur : colonne de gauche fixe */}
-        <aside className={`${intro ? 'flex' : 'hidden'} lg:flex flex-col justify-center safe-top min-h-dvh px-6 py-10 lg:sticky lg:top-0 lg:h-dvh lg:min-h-0 lg:px-14 xl:px-20 lg:py-12 bg-navy`}>
+        <aside className={`${intro ? 'flex' : 'hidden'} ${intro && leaving ? 'anim-out-left lg:animate-none' : ''} lg:flex flex-col justify-center min-h-dvh px-6 pad-top-screen pb-10 lg:sticky lg:top-0 lg:h-dvh lg:min-h-0 lg:px-14 xl:px-20 lg:py-12 bg-navy`}>
           <div className="anim-swing flex items-center justify-center gap-4 lg:gap-8 text-center">
             <BarberPole size="lg" light />
             <div>
@@ -246,7 +260,8 @@ export default function BookingPage() {
             {/* Téléphone : on passe à l'écran de réservation */}
             <button
               onClick={leaveIntro}
-              className="lg:hidden press font-slab mt-8 w-full py-4 flex items-center justify-center gap-3 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)]"
+              style={{ animationDelay: '500ms' }}
+              className="lg:hidden anim-rise press font-slab mt-8 w-full py-4 flex items-center justify-center gap-3 text-xl bg-red text-paper shadow-[4px_4px_0_rgba(0,0,0,.45)]"
             >
               Continuer <ArrowRight size={22} />
             </button>
@@ -259,21 +274,21 @@ export default function BookingPage() {
           </div>
         </aside>
 
-        <main className={`px-4 pt-7 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'} ${intro ? 'hidden lg:block' : ''} ${slideIn ? 'anim-from-right lg:animate-none' : ''}`}>
+        <main className={`px-4 pt-8 lg:px-14 lg:py-16 ${step === 'choose' && slot ? 'pb-32 lg:pb-16' : 'pb-14'} ${intro ? 'hidden lg:block' : ''}`}>
           <div className="max-w-md mx-auto lg:max-w-xl lg:mx-0">
             {step === 'choose' && (
-              <div key="choose" className="anim-pop">
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-gold">{SERVICES}</p>
-                <h2 className="font-slab text-[34px] lg:text-5xl leading-none mt-2">Réserve ta coupe</h2>
-                <p className="text-sm mt-3 opacity-85">Choisis un jour, puis une heure. C&apos;est confirmé tout de suite, sans créer de compte.</p>
+              <div key="choose" className={pageAnim}>
+                <p className="anim-rise text-xs font-bold uppercase tracking-[0.3em] text-gold" style={{ animationDelay: '80ms' }}>{SERVICES}</p>
+                <h2 className="anim-rise font-slab text-[34px] lg:text-5xl leading-none mt-2" style={{ animationDelay: '140ms' }}>Réserve ta coupe</h2>
+                <p className="anim-rise text-sm mt-3 opacity-85" style={{ animationDelay: '200ms' }}>Choisis un jour, puis une heure. C&apos;est confirmé tout de suite, sans créer de compte.</p>
 
                 {noSlotsAtAll ? (
                   <SoldOut />
                 ) : (
                   <>
-                    <StepLabel n={1}>Choisis un jour</StepLabel>
+                    <StepLabel n={1} delay={260}>Choisis un jour</StepLabel>
                     {/* Bande de jours qui défile horizontalement, comme un carnet de tickets */}
-                    <div className="-mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto snap-x pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div style={{ animationDelay: '320ms' }} className="anim-rise -mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto snap-x pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {slots === undefined
                         ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton animate-shimmer opacity-20 shrink-0 w-[62px] h-[86px]" />)
                         : days.map(d => {
@@ -300,7 +315,7 @@ export default function BookingPage() {
                         })}
                     </div>
 
-                    <StepLabel n={2}>
+                    <StepLabel n={2} delay={380}>
                       Choisis une heure
                       {activeDay && <span className="hidden sm:inline normal-case tracking-normal font-normal opacity-70"> · <span className="capitalize">{dayWord(activeDay)}</span> {format(activeDay, 'd MMMM', { locale: fr })}</span>}
                     </StepLabel>
@@ -318,7 +333,7 @@ export default function BookingPage() {
                               onClick={() => { setSlot(selected ? null : s); setFormError(''); }}
                               aria-pressed={selected}
                               className={`notched anim-dispense py-3 font-slab text-2xl transition-colors ${selected ? 'bg-red text-paper' : 'bg-ticket hover:bg-gold'}`}
-                              style={{ animationDelay: `${i * 40}ms` }}
+                              style={{ animationDelay: `${440 + i * 45}ms` }}
                             >
                               {format(new Date(s.startTime), 'HH:mm')}
                             </button>
@@ -336,7 +351,7 @@ export default function BookingPage() {
             )}
 
             {step === 'details' && slot && (
-              <form key="details" onSubmit={handleBook} className="anim-from-right space-y-5">
+              <form key="details" onSubmit={handleBook} className={`space-y-5 ${pageAnim}`}>
                 <button type="button" onClick={() => goTo('choose')} className="flex items-center gap-2 text-sm font-bold py-2 -my-2 hover:text-gold transition">
                   <ArrowLeft size={16} /> Changer d&apos;heure
                 </button>
@@ -385,7 +400,7 @@ export default function BookingPage() {
             )}
 
             {step === 'done' && booked && (
-              <div key="done" className="anim-pop">
+              <div key="done" className={pageAnim}>
                 <h2 className="font-slab text-4xl text-center">C&apos;est réservé !</h2>
                 <p className="text-center text-sm mt-2 opacity-85">À bientôt chez {SHOP_NAME}.</p>
                 {/* Fente du distributeur, d'où sort le ticket */}
@@ -440,7 +455,7 @@ export default function BookingPage() {
 
       {/* Téléphone : le créneau choisi reste collé en bas de l'écran, hors des blocs animés
           (un parent animé avec « transform » empêcherait la barre de rester fixe) */}
-      {step === 'choose' && slot && (
+      {step === 'choose' && slot && !leaving && (
         <div className="lg:hidden anim-sheet-up fixed bottom-0 inset-x-0 z-40 safe-bottom bg-night/95 backdrop-blur border-t-2 border-paper/15">
           <div className="max-w-md mx-auto px-4 py-3">
             <ContinueBar slot={slot} onContinue={() => goTo('details')} />
@@ -483,9 +498,9 @@ function ContinueBar({ slot, onContinue }: { slot: Slot; onContinue: () => void 
 }
 
 // Petit intitulé numéroté au-dessus de chaque choix : on sait toujours quoi faire ensuite
-function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+function StepLabel({ n, delay = 0, children }: { n: number; delay?: number; children: React.ReactNode }) {
   return (
-    <p className="mt-8 mb-3 flex items-center gap-2.5 text-sm font-bold uppercase tracking-[0.15em]">
+    <p style={{ animationDelay: `${delay}ms` }} className="anim-rise mt-8 mb-3 flex items-center gap-2.5 text-sm font-bold uppercase tracking-[0.15em]">
       <span className="size-6 shrink-0 grid place-items-center bg-gold text-navy font-slab text-sm tracking-normal">{n}</span>
       <span>{children}</span>
     </p>

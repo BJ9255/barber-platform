@@ -22,7 +22,7 @@ const SIDES = [
 // Page d'entrée de la démo : on choisit le point de vue, tout est fictif et rien n'est enregistré
 export default function DemoPage() {
     return (
-        <main className="safe-top min-h-dvh max-w-md mx-auto px-5 py-12 flex flex-col justify-center">
+        <main className="pad-top-screen pb-12 min-h-dvh max-w-md mx-auto px-5 flex flex-col justify-center">
             <div className="anim-swing flex items-center gap-4">
                 <BarberPole light />
                 <div>

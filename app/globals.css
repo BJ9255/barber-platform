@@ -136,6 +136,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 @keyframes bar-down { from { transform: translateY(-100%); } to { transform: none; } }
 @keyframes peek { 0%, 100% { transform: translateY(-78%); } 45%, 60% { transform: translateY(-8%); } }
+/* Changement de page sur téléphone : la page quitte l'écran d'un côté, la suivante arrive de l'autre */
+@keyframes page-out-left { to { opacity: 0; transform: translateX(-56px); } }
+@keyframes page-out-right { to { opacity: 0; transform: translateX(56px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 
 .anim-pole { animation: pole-spin 1.2s linear infinite; }
@@ -148,6 +152,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .anim-stamp { animation: stamp 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.4) both; }
 .anim-bar { animation: bar-down 0.3s ease-out both; }
 .anim-peek { animation: peek 3.2s cubic-bezier(0.5, 0, 0.3, 1) infinite; }
+.anim-out-left { animation: page-out-left 0.22s ease-in forwards; pointer-events: none; }
+.anim-out-right { animation: page-out-right 0.22s ease-in forwards; pointer-events: none; }
+.anim-rise { animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 .anim-pop { animation: pop-in 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 
 /* Apparition au défilement : l'élément glisse vers le haut quand il entre dans l'écran */
@@ -156,7 +163,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .anim-pole, .anim-swing, .anim-from-right, .anim-from-left, .anim-dispense, .anim-print, .anim-stamp, .anim-bar, .anim-pop, .anim-peek {
+  .anim-pole, .anim-swing, .anim-from-right, .anim-from-left, .anim-dispense, .anim-print, .anim-stamp, .anim-bar, .anim-pop, .anim-peek, .anim-rise, .anim-out-left, .anim-out-right {
     animation: none !important;
   }
   .anim-tear { animation-duration: 0.01s !important; }
@@ -167,6 +174,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 /* App installée en plein écran : on laisse la place à l'encoche et à la barre d'accueil de l'iPhone */
 .safe-top {
   padding-top: env(safe-area-inset-top);
+}
+/* Page plein écran : marge du haut confortable + encoche de l'iPhone (safe-top seul écraserait la marge) */
+.pad-top-screen {
+  padding-top: calc(env(safe-area-inset-top) + 3.5rem);
 }
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
